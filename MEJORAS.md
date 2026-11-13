@@ -6,6 +6,7 @@
 - [x] Clasificación "Mezcla DJ": mezclables / no mezclables y grupos por velocidad (13 nov)
 - [x] Estéreo rehecho: se adapta a cada canción, medidor izquierda/derecha y prueba de parlantes (13 nov)
 - [x] Audio 8D (13 nov): el sonido gira alrededor de la cabeza, 3 velocidades; para audífonos
+- [x] Letras: búsqueda que entiende títulos tipo "Artista - Canción (Video Oficial)" y artistas mal puestos; solo acepta la letra si título/artista/duración coinciden (13 nov)
 
 ## Pendientes / ideas
 - [ ] Mezcla DJ también cuando se escucha por Android Auto (ahora Android Auto toca una tras otra)

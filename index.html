@@ -56,13 +56,14 @@
   #eq input{writing-mode:vertical-lr;direction:rtl;width:28px;height:120px}
   #eq b{font-size:12px;color:var(--txt);font-weight:400}
   #estadoRec{font-size:14px;color:var(--mut);margin-top:10px;min-height:18px}
-  #flot{position:fixed;left:12px;top:90px;width:min(92vw,420px);height:46vh;background:rgba(20,24,44,.94);
+  #flot{position:fixed;left:12px;top:90px;width:min(92vw,420px);height:46vh;overflow:hidden;background:rgba(20,24,44,.94);
     border:1px solid #33406e;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;flex-direction:column;z-index:50;backdrop-filter:blur(6px)}
   #flot.ver{display:flex}
   #flotCab{display:flex;align-items:center;gap:6px;padding:8px 10px;cursor:move;touch-action:none;border-bottom:1px solid #33406e;font-size:15px;color:var(--mut)}
   #flotCab span{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
   #flotCab button{padding:6px 10px;font-size:15px}
-  #flotTxt{flex:1;min-height:0;overflow-y:auto;padding:14px 16px 40vh;line-height:1.5;scroll-behavior:smooth}
+  #flotTxt{flex:1 1 0;min-height:0;overflow-y:auto;padding:14px 16px;line-height:1.5;scroll-behavior:smooth}
+  #flotTxt::after{content:'';display:block;height:30vh}   /* espacio al final para que la última línea suba al centro */
   #flotTxt p{margin:0 0 10px;color:var(--mut);transition:color .2s,transform .2s}
   #flotTxt p.act{color:var(--txt);font-weight:700;transform:scale(1.03);transform-origin:left}
   #flotTxt.plano p{color:var(--txt)}
@@ -1637,35 +1638,87 @@ async function pedirLRCLIB(params){
   if(!r.ok) throw new Error('lrclib ' + r.status);
   return r.json();
 }
+/* --- Búsqueda de letra "a prueba de etiquetas malas" ---
+   Muchas canciones bajadas traen el título como "Artista - Canción (Video Oficial)" y de artista el nombre
+   de quien la subió. Por eso se prueban varias combinaciones y se acepta solo un resultado que de verdad coincida. */
+const SOBRA_PAREN = /[\(\[\{][^\)\]\}]*(official|oficial|video|audio|lyric|letra|\bhd\b|\bhq\b|4k|remaster|versi[oó]n|version|en vivo|live|karaoke|cover|feat|ft\.|prod|explicit|visualizer|\d{4})[^\)\]\}]*[\)\]\}]/gi;
+const SOBRA_SUELTA = /\b(video\s*(oficial|official|lyric|letra)?|(official|oficial)\s*(music\s*)?(video|audio)|audio\s*(oficial|official)|lyrics?\s*video|con\s*letra|letra|lyrics?|hd|hq|4k)\b/gi;
+function limpiarTexto(t){
+  return String(t || '').replace(/\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|wma|webm|weba)$/i, '').replace(/_/g, ' ')
+    .replace(SOBRA_PAREN, ' ').replace(SOBRA_SUELTA, ' ').replace(/^\s*\d{1,3}\s*[.\-)]\s+/, '')
+    .replace(/\s+/g, ' ').replace(/^[\s\-–—|]+|[\s\-–—|]+$/g, '').trim();
+}
+function normal(t){ return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9ñ]+/g, ' ').trim(); }
+function combinacionesLetra(c){
+  const pares = [], libres = [], visto = new Set();
+  const par = (artista, cancion) => { artista = artista.trim(); cancion = cancion.trim(); const k = normal(artista) + '|' + normal(cancion); if(artista && cancion && !visto.has(k)){ visto.add(k); pares.push({artista, cancion}); } };
+  const libre = t => { const k = '~' + normal(t); if(t && !visto.has(k)){ visto.add(k); libres.push(t); } };
+  const fuentes = [c.titulo, c.nombre].filter(Boolean).map(limpiarTexto).filter(Boolean);
+  // 1) "Artista - Canción" (o al revés) dentro del título o del nombre del archivo
+  fuentes.forEach(f => {
+    const partes = f.split(/\s+[-–—|]\s+/).map(x => x.trim()).filter(Boolean);
+    if(partes.length >= 2){ par(partes[0], partes.slice(1).join(' ')); par(partes.slice(1).join(' '), partes[0]); }
+  });
+  // 2) lo que dicen las etiquetas
+  if(c.titulo && c.artista) par(c.artista, limpiarTexto(c.titulo));
+  // 3) búsqueda libre con todo el texto
+  fuentes.forEach(f => libre(f.replace(/\s+[-–—|]\s+/g, ' ')));
+  if(c.titulo && c.artista) libre(limpiarTexto(c.titulo) + ' ' + c.artista);
+  return {pares: pares.slice(0, 4), libres: libres.slice(0, 2)};
+}
+// De una lista de resultados elige el que coincide de verdad con la canción (título, artista y duración)
+function elegirLetra(resultados, c, dur){
+  const ref = ' ' + normal([c.titulo, c.artista, c.nombre].filter(Boolean).join(' ')) + ' ';
+  const tiene = pal => ref.includes(' ' + pal + ' ');
+  let mejor = null, mejorP = -1;
+  (resultados || []).forEach(x => {
+    if(!x || !(x.syncedLyrics || x.plainLyrics || x.instrumental)) return;
+    const tt = normal(x.trackName || x.name).split(' ').filter(Boolean), ta = normal(x.artistName).split(' ').filter(Boolean);
+    if(!tt.length) return;
+    const cubreT = tt.filter(tiene).length / tt.length, cubreA = ta.length ? ta.filter(tiene).length / ta.length : 0;
+    const dif = dur && x.duration ? Math.abs(x.duration - dur) : null;
+    if(cubreT < 0.75) return;                              // el título del resultado tiene que estar en lo que sabemos de la canción
+    if(dif !== null && dif > 20) return;                   // otra versión muy distinta de larga: no sirve
+    if(cubreA < 0.5 && !(dif !== null && cubreT === 1 && dif <= (tt.length >= 2 ? 3 : 2))) return;   // sin artista coincidente, solo si título y duración calzan exacto
+    const p = cubreT * 3 + cubreA * 3 + (dif === null ? 0 : dif <= 3 ? 3 : dif <= 8 ? 1.5 : 0) + (x.syncedLyrics ? 1 : 0);
+    if(p > mejorP){ mejorP = p; mejor = x; }
+  });
+  return mejor;
+}
+async function buscarLetra(c, dur){
+  const {pares, libres} = combinacionesLetra(c);
+  for(const p of pares){
+    const q = new URLSearchParams({track_name: p.cancion, artist_name: p.artista});
+    if(dur) q.set('duration', dur);
+    let d = null; try{ d = await pedirLRCLIB('get?' + q); }catch(e){ if(String(e.message).includes('lrclib 4')) d = null; else throw e; }
+    d = elegirLetra(d ? [d] : [], c, dur);
+    if(d) return d;
+  }
+  for(const p of pares){
+    const d = elegirLetra(await pedirLRCLIB('search?' + new URLSearchParams({track_name: p.cancion, artist_name: p.artista})), c, dur);
+    if(d) return d;
+  }
+  for(const t of libres){
+    const d = elegirLetra(await pedirLRCLIB('search?' + new URLSearchParams({q: t})), c, dur);
+    if(d) return d;
+  }
+  return null;
+}
+const VERSION_LETRA = 2;      // si mejora la búsqueda, las que antes "no se encontraron" se vuelven a buscar
 let pidiendoPara = null;
 async function cargarLetra(){
   const c = lista[actual];
   $('flotTit').textContent = c ? titulo(c) + (c.artista ? ' — ' + c.artista : '') : 'Letra';
   if(!c){ textoFlot('No hay canción sonando.'); return; }
   if(c.letra || c.letraSync){ pintarLetra(c); return; }
-  if(c.letraNo){ textoFlot('No se encontró la letra de esta canción.'); return; }
-  if(!c.titulo && !c.artista){ /* sin etiquetas: busca por el nombre del archivo */ }
+  if(c.letraNo && c.letraV === VERSION_LETRA){ textoFlot('No se encontró la letra de esta canción.'); return; }
   textoFlot('Buscando letra…'); pidiendoPara = c;
   try{
     const dur = Math.round(audio.duration || await duracionDe(await archivoDe(c)) || 0);
-    let d = null;
-    if(c.titulo && c.artista){
-      const q = new URLSearchParams({track_name: c.titulo, artist_name: c.artista});
-      if(c.album) q.set('album_name', c.album);
-      if(dur) q.set('duration', dur);
-      d = await pedirLRCLIB('get?' + q);
-    }
-    if(!d || (!d.syncedLyrics && !d.plainLyrics)){
-      const q = c.titulo ? new URLSearchParams(c.artista ? {track_name: c.titulo, artist_name: c.artista} : {q: c.titulo})
-                         : new URLSearchParams({q: limpiarNombre(c.nombre)});
-      const lista2 = (await pedirLRCLIB('search?' + q)) || [];
-      const con = lista2.filter(x => x.syncedLyrics || x.plainLyrics);
-      if(dur) con.sort((a,b) => Math.abs((a.duration||0) - dur) - Math.abs((b.duration||0) - dur));
-      d = con.find(x => x.syncedLyrics && (!dur || Math.abs(x.duration - dur) <= 5)) || con[0] || null;
-    }
-    if(d && d.instrumental){ c.letra = '🎵 (Instrumental)'; }
-    else if(d){ c.letraSync = d.syncedLyrics || ''; c.letra = d.plainLyrics || ''; }
-    else c.letraNo = true;
+    const d = await buscarLetra(c, dur);
+    if(d && d.instrumental && !d.syncedLyrics && !d.plainLyrics){ c.letra = '🎵 (Instrumental)'; c.letraNo = false; }
+    else if(d){ c.letraSync = d.syncedLyrics || ''; c.letra = d.plainLyrics || ''; c.letraNo = false; }
+    else { c.letraNo = true; c.letraV = VERSION_LETRA; }
     guardarCancion(c);
     if(pidiendoPara !== c || lista[actual] !== c) return;
     if(c.letraNo) textoFlot('No se encontró la letra de esta canción.'); else pintarLetra(c);
