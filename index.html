@@ -51,6 +51,10 @@
   #aviso{display:none;background:#3a2f12;color:#ffd98a;border-radius:14px;padding:12px;margin-bottom:14px;font-size:15px}
   #aviso button{margin-top:8px;width:100%;background:#ffd98a;color:#3a2f12;font-weight:700}
   #infoCarpeta,#estadoClas{font-size:14px;color:var(--mut);margin-top:10px;min-height:18px;word-break:break-word}
+  #eq{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:10px;text-align:center}
+  #eq label{font-size:12px;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:2px}
+  #eq input{writing-mode:vertical-lr;direction:rtl;width:28px;height:120px}
+  #eq b{font-size:12px;color:var(--txt);font-weight:400}
   #estadoRec{font-size:14px;color:var(--mut);margin-top:10px;min-height:18px}
   #flot{position:fixed;left:12px;top:90px;width:min(92vw,420px);height:46vh;background:rgba(20,24,44,.94);
     border:1px solid #33406e;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;flex-direction:column;z-index:50;backdrop-filter:blur(6px)}
@@ -94,6 +98,9 @@
     <div id="medidor"><span>Izq.</span><div><i id="mL"></i></div><span>Der.</span><div><i id="mR"></i></div></div>
     <div id="estEstado"></div>
     <button id="bProbar" style="width:100%;margin-top:8px;font-size:14px;padding:10px">🔊 Probar parlante izquierdo y derecho</button>
+    <div style="margin-top:14px;font-size:15px;color:var(--mut)">🎛 Ecualizador</div>
+    <div class="chips" id="eqChips"></div>
+    <div id="eq"></div>
     <div style="margin-top:12px;font-size:15px;color:var(--mut)">🎚 Modo DJ (mezcla sin silencios)</div>
     <div class="est" id="djChips">
       <button data-s="0">Apagado</button>
@@ -228,7 +235,7 @@ function estado(){
     etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm).map(c => [c.nombre, {titulo:c.titulo||'', artista:c.artista||'', album:c.album||'', anio:c.anio||'', genero:c.genero||'', bpm:c.bpm||0, pulso:c.pulso||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
     vista,
     clave: claveGuardada(), actual: lista[actual]?.nombre || null,
-    posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg };
+    posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg, eq: eqVals };
 }
 const APP = !!window.AndroidJAT;   // dentro de la app Android
 let syncTimer = null;
@@ -252,6 +259,7 @@ function aplicarEstado(e, conPos, soloLista = false){
     if(typeof e.dj === 'number') ponerDJ(e.dj, false);
     aleatorio = !!e.aleatorio; repetir = !!e.repetir; pintarModos();
     if(e.estereo && PRESETS[e.estereo]) ponerEstereo(e.estereo, false);
+    if(Array.isArray(e.eq) && e.eq.length === 5) ponerEQ(e.eq, false);
   }
   if(e.etiquetas) lista.forEach(c => {
     const t = e.etiquetas[c.nombre]; if(!t) return;
@@ -332,7 +340,17 @@ function armarAudio(){
     // Camino "Normal": el sonido original intacto
     gSeco = g(1); entrada.connect(gSeco);
     gMusica = g(1); gSeco.connect(gMusica); gEfecto.connect(gMusica);
-    nFin = g(1); gMusica.connect(nFin); nFin.connect(c.destination);
+    // Ecualizador: 5 filtros en fila + un ajuste de volumen para que al subir una barra no sature
+    eqPre = g(1);
+    eqNodos = EQ_BANDAS.map(b => { const f = c.createBiquadFilter(); f.type = b.tipo; f.frequency.value = b.hz; f.Q.value = 0.9; f.gain.value = 0; return f; });
+    gMusica.connect(eqPre); eqPre.connect(eqNodos[0]);
+    for(let k = 1; k < eqNodos.length; k++) eqNodos[k - 1].connect(eqNodos[k]);
+    // tope suave al final del ecualizador (misma curva del efecto estéreo): nunca sale más fuerte que el máximo
+    const topeEQ = c.createWaveShaper(); topeEQ.curve = curva; topeEQ.oversample = '2x';
+    const antesTopeEQ = g(0.6); eqNodos[eqNodos.length - 1].connect(antesTopeEQ); antesTopeEQ.connect(topeEQ);
+    eqCon = g(0); topeEQ.connect(eqCon);
+    eqSin = g(1); gMusica.connect(eqSin);                    // con todo en 0 el ecualizador se salta: sonido intacto
+    nFin = g(1); eqCon.connect(nFin); eqSin.connect(nFin); nFin.connect(c.destination);
     // Medidor izquierda / derecha de lo que realmente sale
     const spM = c.createChannelSplitter(2); nFin.connect(spM);
     anL = c.createAnalyser(); anR = c.createAnalyser(); anL.fftSize = anR.fftSize = 2048;
@@ -348,7 +366,7 @@ function armarAudio(){
     });
     gDeck = gd; gBajo = gb; ctxA = c;
     c.onstatechange = () => { if(c.state !== 'running' && !audio.paused) c.resume().catch(() => {}); };
-    aplicarEstereo(true);
+    aplicarEstereo(true); aplicarEQ(true);
   }catch(e){
     audioRoto = (e && e.message) || 'error';
     anL = anR = anM = anS = null;
@@ -455,6 +473,50 @@ $('bProbar').onclick = async () => {
   probando = false; $('bProbar').disabled = false; pintarEstadoEstereo();
 };
 ponerEstereo('normal', false);
+
+/* ---------- Ecualizador ---------- */
+const EQ_BANDAS = [
+  {nombre: 'Graves',   hz: 110,   tipo: 'lowshelf'},
+  {nombre: 'Bajos',    hz: 250,   tipo: 'peaking'},
+  {nombre: 'Voces',    hz: 1000,  tipo: 'peaking'},
+  {nombre: 'Claridad', hz: 3500,  tipo: 'peaking'},
+  {nombre: 'Agudos',   hz: 7000,  tipo: 'highshelf'},
+];
+const EQ_PRESETS = {
+  'Plano': [0, 0, 0, 0, 0], 'Más bajos': [7, 4, 0, 0, 0], 'Rock': [5, 2, -2, 3, 5], 'Pop': [-1, 2, 4, 3, 0],
+  'Salsa / Latina': [4, 0, 1, 4, 5], 'Voz clara': [-3, -1, 4, 5, 1], 'Más brillo': [0, 0, 0, 3, 7], 'Parlante de celular': [8, 5, 0, 1, 2],
+};
+let eqVals = [0, 0, 0, 0, 0], eqNodos = null, eqPre = null, eqCon = null, eqSin = null;
+function aplicarEQ(ya = false){
+  if(!ctxA || !eqNodos) return;
+  const t = ctxA.currentTime, k = ya ? 0.001 : 0.03;
+  eqNodos.forEach((f, i) => { f.gain.cancelScheduledValues(t); f.gain.setTargetAtTime(eqVals[i], t, k); });
+  const sube = Math.max(0, ...eqVals);                     // lo que más se sube…
+  eqPre.gain.cancelScheduledValues(t); eqPre.gain.setTargetAtTime(Math.pow(10, -sube / 20), t, k);   // …se baja antes, para no saturar
+  const activo = eqVals.some(v => v !== 0);
+  eqCon.gain.cancelScheduledValues(t); eqCon.gain.setTargetAtTime(activo ? 1 : 0, t, k);
+  eqSin.gain.cancelScheduledValues(t); eqSin.gain.setTargetAtTime(activo ? 0 : 1, t, k);
+}
+function ponerEQ(vals, guardar = true){
+  eqVals = vals.map(v => Math.max(-12, Math.min(12, +v || 0)));
+  document.querySelectorAll('#eq input').forEach((el, i) => { el.value = eqVals[i]; el.nextElementSibling.textContent = (eqVals[i] > 0 ? '+' : '') + eqVals[i]; });
+  const igual = Object.keys(EQ_PRESETS).find(n => EQ_PRESETS[n].every((v, i) => v === eqVals[i]));
+  document.querySelectorAll('#eqChips button').forEach(b => b.classList.toggle('on', b.textContent === igual));
+  aplicarEQ();
+  if(guardar) guardarEstado();
+}
+EQ_BANDAS.forEach((b, i) => {
+  const l = document.createElement('label'), inp = document.createElement('input'), val = document.createElement('b');
+  inp.type = 'range'; inp.min = -12; inp.max = 12; inp.step = 1; inp.value = 0; val.textContent = '0';
+  inp.oninput = () => { despertarAudio(); const v = eqVals.slice(); v[i] = +inp.value; ponerEQ(v); };
+  l.append(inp, val, document.createTextNode(b.nombre)); $('eq').append(l);
+});
+Object.keys(EQ_PRESETS).forEach(n => {
+  const b = document.createElement('button'); b.textContent = n;
+  b.onclick = () => { despertarAudio(); ponerEQ(EQ_PRESETS[n]); };
+  $('eqChips').append(b);
+});
+ponerEQ(eqVals, false);
 
 /* ---------- Modo DJ: mezcla como un DJ (une los golpes de las dos canciones) ----------
    1) Cada canción se analiza: dónde empieza a sonar (ini), dónde empieza a apagarse sola (sal),
