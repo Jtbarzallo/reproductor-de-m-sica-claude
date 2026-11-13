@@ -16,3 +16,6 @@ Reproductor de música sencillo en una sola página HTML.
 - Controles desde la pantalla de bloqueo del celular
 - Recuerda canciones, posición y volumen al cerrar
 - **Respaldo en archivo** (💾 Guardar / 📂 Cargar): lista, orden, posición, volumen, modos, etiquetas, letras y clave
+
+## App Android (Android Auto)
+👉 [Descargar ReproductorJAT.apk](https://github.com/Jtbarzallo/reproductor-de-m-sica-claude/releases/latest/download/ReproductorJAT.apk) — detalles en [android/README.md](android/README.md)

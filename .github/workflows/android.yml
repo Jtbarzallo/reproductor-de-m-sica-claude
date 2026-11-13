@@ -1,0 +1,54 @@
+name: Compilar app Android
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+      - name: Compilar
+        run: |
+          set -o pipefail
+          gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee ../build.log
+      - name: Renombrar APK
+        run: cp app/build/outputs/apk/release/app-release.apk ../ReproductorJAT.apk
+      - name: Publicar descarga
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-v1.0.${{ github.run_number }}
+          name: Reproductor JAT Android v1.0.${{ github.run_number }}
+          files: ReproductorJAT.apk
+          make_latest: true
+      - name: Guardar registro si falla
+        if: failure()
+        working-directory: .
+        run: |
+          grep -E "^e: |error:|FAILURE|What went wrong" -A3 build.log | head -150 > errores.txt || true
+          tail -80 build.log >> errores.txt || true
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git checkout --orphan registro-compilacion
+          git rm -rf --cached . >/dev/null
+          git add -f errores.txt
+          git commit -m "Registro de la compilación ${{ github.run_number }}"
+          git push -f origin registro-compilacion
