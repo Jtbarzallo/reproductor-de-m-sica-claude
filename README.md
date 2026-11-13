@@ -4,6 +4,7 @@ Reproductor de música sencillo en una sola página HTML.
 
 - Reproducir/pausar, anterior/siguiente, barra de tiempo y volumen
 - Modos aleatorio y repetir
+- Sonido estéreo: Normal, Ampliado, Máximo y Mono→Estéreo (crea estéreo en canciones mono)
 - Lista de canciones (ordenar y quitar)
 - Lee etiquetas de los archivos: título, artista, álbum y portada (si no tiene, usa el nombre del archivo)
 - Reconoce canciones sin etiqueta por el sonido (AcoustID + MusicBrainz, portada de Cover Art Archive). Necesita una clave gratis de acoustid.org

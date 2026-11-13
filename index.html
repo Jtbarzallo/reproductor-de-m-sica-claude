@@ -39,6 +39,8 @@
   input[type=file]{display:none}
   input[type=text]{width:100%;padding:12px;border-radius:12px;border:1px solid #33406e;background:#0f1220;color:var(--txt);font-size:16px;margin-top:8px}
   a{color:var(--acc)}
+  .est{display:flex;gap:6px;margin-top:10px}
+  .est button{flex:1;font-size:14px;padding:10px 4px}
   #estadoRec{font-size:14px;color:var(--mut);margin-top:10px;min-height:18px}
   #flot{position:fixed;left:12px;top:90px;width:min(92vw,420px);height:46vh;background:rgba(20,24,44,.94);
     border:1px solid #33406e;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;flex-direction:column;z-index:50;backdrop-filter:blur(6px)}
@@ -71,6 +73,13 @@
       <button id="bRep" title="Repetir">🔁</button>
     </div>
     <div class="vol">🔈<input id="vol" type="range" min="0" max="1" step="0.01" value="1">🔊</div>
+    <div style="margin-top:12px;font-size:15px;color:var(--mut)">🎧 Sonido estéreo</div>
+    <div class="est" id="est">
+      <button data-m="normal">Normal</button>
+      <button data-m="amplio">Ampliado</button>
+      <button data-m="maximo">Máximo</button>
+      <button data-m="mono">Mono→Estéreo</button>
+    </div>
     <div class="fila" style="margin-top:10px">
       <button id="bLetra">🎤 Letra</button>
       <button id="bRec">🔍 Reconocer sin etiqueta</button>
@@ -149,7 +158,7 @@ function estado(){
     orden: lista.map(c => c.nombre),
     etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra).map(c => [c.nombre, {titulo:c.titulo||'', artista:c.artista||'', album:c.album||'', letra:c.letra||'', letraSync:c.letraSync||''}])),
     clave: claveGuardada(), actual: lista[actual]?.nombre || null,
-    posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir };
+    posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst };
 }
 function guardarEstado(){ try{ localStorage.setItem('reproductorJAT_estado', JSON.stringify(estado())); }catch(e){} }
 function leerEstado(){ try{ return JSON.parse(localStorage.getItem('reproductorJAT_estado')); }catch(e){ return null; } }
@@ -162,6 +171,7 @@ function aplicarEstado(e, conPos){
   }
   if(typeof e.volumen === 'number'){ audio.volume = e.volumen; $('vol').value = e.volumen; }
   aleatorio = !!e.aleatorio; repetir = !!e.repetir; pintarModos();
+  if(e.estereo && PRESETS[e.estereo]) ponerEstereo(e.estereo, false);
   if(e.etiquetas) lista.forEach(c => {
     const t = e.etiquetas[c.nombre]; if(!t) return;
     let cambio = false;
@@ -173,6 +183,57 @@ function aplicarEstado(e, conPos){
   if(i >= 0){ cargar(i, false, conPos ? e.posicion : 0); }
   pintarLista();
 }
+
+/* ---------- Sonido estéreo (Web Audio) ---------- */
+// ancho = cuánto se abre el estéreo; falso = cuánto estéreo se "crea" (sirve para canciones mono)
+const PRESETS = { normal:{ancho:1, falso:0}, amplio:{ancho:1.6, falso:0.25}, maximo:{ancho:2.2, falso:0.4}, mono:{ancho:1, falso:0.65} };
+let modoEst = 'normal', ctxA = null, nAncho = null, nFalso = null;
+function armarAudio(){
+  if(ctxA) return;
+  try{
+    ctxA = new (window.AudioContext || window.webkitAudioContext)();
+    const src = ctxA.createMediaElementSource(audio);
+    const sp = ctxA.createChannelSplitter(2), mg = ctxA.createChannelMerger(2);
+    const g = v => { const n = ctxA.createGain(); n.gain.value = v; return n; };
+    const a2 = g(1); a2.channelCountMode = 'explicit'; a2.channelCount = 2; a2.channelInterpretation = 'speakers'; // mono → copia a los 2 lados
+    src.connect(a2); a2.connect(sp);
+    // Centro (M) y lados (S)
+    const mid = g(0.5), side = g(1);
+    const lM = g(1), rM = g(1), lS = g(0.5), rS = g(-0.5);
+    sp.connect(lM, 0); sp.connect(rM, 1); lM.connect(mid); rM.connect(mid);
+    sp.connect(lS, 0); sp.connect(rS, 1); lS.connect(side); rS.connect(side);
+    nAncho = g(1); side.connect(nAncho);
+    // Estéreo artificial: el centro con un pequeño retraso y sin graves se suma a los lados
+    const ret = ctxA.createDelay(0.05); ret.delayTime.value = 0.013;
+    const pa = ctxA.createBiquadFilter(); pa.type = 'highpass'; pa.frequency.value = 250;
+    nFalso = g(0); mid.connect(ret); ret.connect(pa); pa.connect(nFalso);
+    const sTot = g(1); nAncho.connect(sTot); nFalso.connect(sTot);
+    const sInv = g(-1); sTot.connect(sInv);
+    // Izquierda = M + S ; Derecha = M − S
+    mid.connect(mg, 0, 0); sTot.connect(mg, 0, 0);
+    mid.connect(mg, 0, 1); sInv.connect(mg, 0, 1);
+    // Limitador suave para que no distorsione al abrir el estéreo
+    const lim = ctxA.createDynamicsCompressor();
+    lim.threshold.value = -3; lim.knee.value = 6; lim.ratio.value = 12; lim.attack.value = 0.003; lim.release.value = 0.15;
+    mg.connect(lim); lim.connect(ctxA.destination);
+    aplicarEstereo();
+  }catch(e){ ctxA = null; }
+}
+function aplicarEstereo(){
+  if(!ctxA) return;
+  const p = PRESETS[modoEst] || PRESETS.normal, t = ctxA.currentTime;
+  nAncho.gain.setTargetAtTime(p.ancho, t, 0.05);
+  nFalso.gain.setTargetAtTime(p.falso, t, 0.05);
+}
+function ponerEstereo(m, guardar = true){
+  modoEst = m;
+  document.querySelectorAll('#est button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  aplicarEstereo();
+  if(guardar) guardarEstado();
+}
+document.querySelectorAll('#est button').forEach(b => b.onclick = () => { armarAudio(); if(ctxA && ctxA.state === 'suspended') ctxA.resume(); ponerEstereo(b.dataset.m); });
+ponerEstereo('normal', false);
+audio.addEventListener('play', () => { armarAudio(); if(ctxA && ctxA.state === 'suspended') ctxA.resume(); });
 
 /* ---------- Reproducción ---------- */
 function fmt(s){ if(!isFinite(s)) return '0:00'; s = Math.floor(s); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
