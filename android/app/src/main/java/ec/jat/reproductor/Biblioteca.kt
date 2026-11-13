@@ -24,6 +24,7 @@ data class Cancion(
     val anio: String,
     val genero: String,
     val bpm: Int,
+    val pulso: Int,
     val carpeta: String,
     val duracionMs: Long,
 )
@@ -46,6 +47,7 @@ object Biblioteca {
         "mas" to "Más",
     )
     val SUBCATEGORIAS = linkedMapOf(
+        "dj" to "🎚 Mezcla DJ",
         "carpeta" to "Carpetas",
         "artista" to "Artistas",
         "album" to "Álbumes",
@@ -131,6 +133,7 @@ object Biblioteca {
                             anio = w("anio").ifEmpty { anioMs },
                             genero = limpiarGenero(w("genero").ifEmpty { generoMs }),
                             bpm = web?.optInt("bpm", 0) ?: 0,
+                            pulso = web?.optInt("pulso", 0) ?: 0,
                             carpeta = carpeta.ifEmpty { "Carpeta principal" },
                             duracionMs = l(MediaStore.Audio.Media.DURATION),
                         )
@@ -156,10 +159,24 @@ object Biblioteca {
         else -> "Rápido"
     }
 
+    // Mezcla DJ: canciones con golpe marcado y velocidad parecida (igual que en el reproductor del celular)
+    private val TRAMOS_DJ = intArrayOf(85, 95, 105, 115, 125, 135, 150, 170)
+    private fun tempoDJ(bpm: Int): Double { var b = bpm.toDouble(); while (b < 85) b *= 2; while (b >= 170) b /= 2; return b }
+    private fun mezclable(c: Cancion) = c.bpm > 0 && c.pulso >= 35
+    private fun grupoDJ(c: Cancion): String {
+        if (c.bpm <= 0 || c.pulso <= 0) return "Sin analizar"
+        if (!mezclable(c)) return "No mezclables"
+        val b = tempoDJ(c.bpm)
+        for (k in 0 until TRAMOS_DJ.size - 1) if (b < TRAMOS_DJ[k + 1]) return "${TRAMOS_DJ[k]}–${TRAMOS_DJ[k + 1]} BPM"
+        return "No mezclables"
+    }
+    private fun numDJ(g: String): Int = g.takeWhile { it.isDigit() }.toIntOrNull() ?: if (g == "No mezclables") 1000 else 2000
+
     /** A qué grupo pertenece una canción dentro de una categoría. */
     fun grupoDe(c: Cancion, cat: String): String = when (cat) {
         "genero" -> c.genero.ifEmpty { "Sin género" }
         "ritmo" -> ritmo(c.bpm)
+        "dj" -> grupoDJ(c)
         "artista" -> c.artista.ifEmpty { "Artista desconocido" }
         "album" -> c.album.ifEmpty { "Álbum desconocido" }
         "anio" -> c.anio.ifEmpty { "Sin año" }
@@ -172,7 +189,8 @@ object Biblioteca {
         canciones(ctx).forEach { val g = grupoDe(it, cat); cuenta[g] = (cuenta[g] ?: 0) + 1 }
         val ordenRitmo = listOf("Lento", "Moderado", "Rápido", "Sin analizar")
         return cuenta.entries.map { it.key to it.value }.sortedWith(
-            if (cat == "ritmo") compareBy<Pair<String, Int>> { ordenRitmo.indexOf(it.first) }
+            if (cat == "dj") compareBy<Pair<String, Int>> { numDJ(it.first) }
+            else if (cat == "ritmo") compareBy<Pair<String, Int>> { ordenRitmo.indexOf(it.first) }
             else compareBy<Pair<String, Int>>({ it.first.startsWith("Sin ") || it.first.endsWith("desconocido") }, { quitarTildes(it.first) })
         )
     }
@@ -183,7 +201,8 @@ object Biblioteca {
         if (contexto == "todas" || contexto.isEmpty()) return todas
         val cat = contexto.substringBefore('|')
         val grupo = contexto.substringAfter('|')
-        return todas.filter { grupoDe(it, cat) == grupo }
+        val filtradas = todas.filter { grupoDe(it, cat) == grupo }
+        return if (cat == "dj") filtradas.sortedBy { if (mezclable(it)) tempoDJ(it.bpm) else 1000.0 } else filtradas
     }
 
     fun buscar(ctx: Context, texto: String): List<Cancion> {

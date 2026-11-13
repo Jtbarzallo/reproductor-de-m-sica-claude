@@ -122,7 +122,7 @@
   <div class="card">
     <div style="font-size:15px;color:var(--mut)">Ver por</div>
     <div class="chips" id="porChips">
-      <button data-p="todas">Todas</button><button data-p="genero">Género</button><button data-p="ritmo">Ritmo</button>
+      <button data-p="todas">Todas</button><button data-p="dj">🎚 Mezcla DJ</button><button data-p="genero">Género</button><button data-p="ritmo">Ritmo</button>
       <button data-p="artista">Artista</button><button data-p="album">Álbum</button><button data-p="anio">Año</button><button data-p="carpeta">Carpeta</button>
     </div>
     <div class="chips" id="grupoChips"></div>
@@ -225,7 +225,7 @@ function leerTodas(){
 function estado(){
   return { app:'Reproductor de Música JAT', version:1, fecha:new Date().toISOString(),
     orden: lista.map(c => c.nombre),
-    etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm).map(c => [c.nombre, {titulo:c.titulo||'', artista:c.artista||'', album:c.album||'', anio:c.anio||'', genero:c.genero||'', bpm:c.bpm||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
+    etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm).map(c => [c.nombre, {titulo:c.titulo||'', artista:c.artista||'', album:c.album||'', anio:c.anio||'', genero:c.genero||'', bpm:c.bpm||0, pulso:c.pulso||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
     vista,
     clave: claveGuardada(), actual: lista[actual]?.nombre || null,
     posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg };
@@ -256,7 +256,7 @@ function aplicarEstado(e, conPos, soloLista = false){
   if(e.etiquetas) lista.forEach(c => {
     const t = e.etiquetas[c.nombre]; if(!t) return;
     let cambio = false;
-    for(const k of ['titulo','artista','album','anio','genero','bpm','letra','letraSync']) if(t[k] && !c[k]){ c[k] = t[k]; cambio = true; }
+    for(const k of ['titulo','artista','album','anio','genero','bpm','pulso','letra','letraSync']) if(t[k] && !c[k]){ c[k] = t[k]; cambio = true; }
     if(cambio) guardarCancion(c);
   });
   if(e.clave && !claveGuardada()) guardarClave(e.clave);
@@ -767,6 +767,7 @@ function grupoDe(c, por){
   switch(por){
     case 'genero': return c.genero || 'Sin género';
     case 'ritmo': return categoriaRitmo(c.bpm) || 'Sin analizar';
+    case 'dj': return grupoDJ(c);
     case 'artista': return c.artista || 'Artista desconocido';
     case 'album': return c.album || 'Álbum desconocido';
     case 'anio': return c.anio || 'Sin año';
@@ -774,9 +775,26 @@ function grupoDe(c, por){
   }
   return '';
 }
+/* Mezcla DJ: se juntan las canciones con golpe marcado y velocidad parecida (las que se mezclan bien entre sí) */
+const PULSO_MIN = 35;                                   // menos que esto: el golpe no es parejo, cuesta mezclarla
+const TRAMOS_DJ = [85, 95, 105, 115, 125, 135, 150, 170];
+function tempoDJ(bpm){ let b = bpm; while(b < 85) b *= 2; while(b >= 170) b /= 2; return b; }   // 64 y 128 mezclan igual (doble)
+function mezclable(c){ return !!c.bpm && (c.pulso || 0) >= PULSO_MIN; }
+function grupoDJ(c){
+  if(!c.bpm || !c.pulso) return 'Sin analizar';
+  if(!mezclable(c)) return 'No mezclables';
+  const b = tempoDJ(c.bpm);
+  for(let k = 0; k < TRAMOS_DJ.length - 1; k++) if(b < TRAMOS_DJ[k + 1]) return `${TRAMOS_DJ[k]}–${TRAMOS_DJ[k + 1]} BPM`;
+  return 'No mezclables';
+}
 function visibles(){
   const v = [];
   lista.forEach((c, i) => { if(vista.por === 'todas' || vista.grupo === null || grupoDe(c, vista.por) === vista.grupo) v.push(i); });
+  if(vista.por === 'dj'){
+    // de la más lenta a la más rápida: cada canción queda junto a las que mejor mezclan con ella; las no mezclables al final
+    const clave = i => { const c = lista[i]; return mezclable(c) ? tempoDJ(c.bpm) : (c.bpm ? 1000 : 2000); };
+    v.sort((a, b) => clave(a) - clave(b) || a - b);
+  }
   return v;
 }
 function pintarChips(){
@@ -787,14 +805,19 @@ function pintarChips(){
   const cuenta = new Map();
   lista.forEach(c => { const g = grupoDe(c, vista.por); cuenta.set(g, (cuenta.get(g) || 0) + 1); });
   const orden = vista.por === 'ritmo' ? ['Lento','Moderado','Rápido','Sin analizar'] : null;
-  const grupos = [...cuenta.keys()].sort((a, b) => orden ? orden.indexOf(a) - orden.indexOf(b)
+  const numDJ = g => /^\d/.test(g) ? parseInt(g) : g === 'No mezclables' ? 1000 : 2000;
+  const grupos = [...cuenta.keys()].sort((a, b) => vista.por === 'dj' ? numDJ(a) - numDJ(b) : orden ? orden.indexOf(a) - orden.indexOf(b)
     : (/^(Sin |Artista desc|Álbum desc)/.test(a) - /^(Sin |Artista desc|Álbum desc)/.test(b)) || a.localeCompare(b, 'es'));
   if(vista.grupo !== null && !cuenta.has(vista.grupo)) vista.grupo = null;
   const mk = (txt, g, n) => {
     const b = document.createElement('button'); b.textContent = txt;
     if(n !== undefined){ const k = document.createElement('b'); k.textContent = n; b.append(k); }
     b.classList.toggle('on', vista.grupo === g);
-    b.onclick = () => { vista.grupo = g; pintarLista(); guardarEstado(); };
+    b.onclick = () => {
+      vista.grupo = g;
+      if(vista.por === 'dj' && g && /^\d/.test(g) && !djSeg) ponerDJ(8, false);   // al elegir un grupo para mezclar se enciende el modo DJ
+      pintarLista(); guardarEstado();
+    };
     gc.append(b);
   };
   mk('Todas', null, lista.length);
@@ -806,7 +829,7 @@ function pintarLista(){
   pintarChips();
   const ul = $('lista'); ul.innerHTML = '';
   if(!lista.length){ ul.innerHTML = '<div class="vacio">Tu lista está vacía. Elige tu carpeta de música.</div>'; return; }
-  const v = visibles(), filtrado = v.length !== lista.length;
+  const v = visibles(), filtrado = v.length !== lista.length || vista.por === 'dj';
   if(!v.length){ ul.innerHTML = '<div class="vacio">No hay canciones en este grupo</div>'; return; }
   const frag = document.createDocumentFragment();
   v.forEach((i, pos) => {
@@ -816,7 +839,7 @@ function pintarLista(){
     const s = document.createElement('span');
     s.textContent = (i === actual ? '♪ ' : (pos+1)+'. ') + titulo(c);
     if(detalle(c)){ const sm = document.createElement('small'); sm.textContent = detalle(c); s.append(sm); }
-    const extra = [c.genero, c.bpm ? `🥁 ${categoriaRitmo(c.bpm)} (${c.bpm})` : ''].filter(Boolean).join(' · ');
+    const extra = [c.genero, c.bpm ? `🥁 ${categoriaRitmo(c.bpm)} (${c.bpm})` : '', c.pulso ? (mezclable(c) ? '🎚 mezclable' : '🎚 difícil de mezclar') : ''].filter(Boolean).join(' · ');
     if(extra){ const sm = document.createElement('small'); sm.textContent = extra; s.append(sm); }
     s.onclick = () => irA(i);
     li.append(s);
@@ -1023,26 +1046,35 @@ async function detectarBPM(c){
   // energía en ventanas de 10 ms
   const paso = Math.floor(sr / 100), env = [];
   for(let i = 0; i + paso < datos.length; i += paso){ let e = 0; for(let j = i; j < i + paso; j++) e += datos[j] * datos[j]; env.push(e); }
+  // se suaviza dos veces (promedio de 5 ventanas = 50 ms) para que una nota larga de bajo no parezca un golpe
+  const prom5 = arr => arr.map((e, i) => { let t = 0; for(let k = -2; k <= 2; k++) t += arr[i + k] ?? e; return t / 5; });
+  const sua = prom5(prom5(env));
   // aumentos de energía (golpes)
-  const on = env.map((e, i) => i ? Math.max(0, e - env[i - 1]) : 0);
+  const on = sua.map((e, i) => i ? Math.max(0, e - sua[i - 1]) : 0);
+  let envE = 0; for(const e of sua) envE += e * e;
   // autocorrelación entre 60 y 190 BPM
-  let mejor = 0, mejorLag = 0;
+  let mejor = 0, mejorLag = 0, mejorPuro = 0, energia = 0;
+  for(let i = 0; i < on.length; i++) energia += on[i] * on[i];
   for(let lag = Math.round(6000 / 190); lag <= Math.round(6000 / 60); lag++){
     let s = 0; for(let i = lag; i < on.length; i++) s += on[i] * on[i - lag];
+    const puro = s;
     s *= 1 + 0.15 * Math.exp(-Math.pow((6000 / lag - 115) / 40, 2)); // leve preferencia por tempos comunes
-    if(s > mejor){ mejor = s; mejorLag = lag; }
+    if(s > mejor){ mejor = s; mejorLag = lag; mejorPuro = puro; }
   }
-  if(!mejorLag) return 0;
+  if(!mejorLag || !energia) return {bpm: 0, pulso: 0};
   let bpm = 6000 / mejorLag;
   while(bpm < 70) bpm *= 2; while(bpm > 180) bpm /= 2;
-  return Math.round(bpm);
+  // pulso: de 0 a 100, qué tan parejo y marcado es el golpe (batería/bajo). Alto = fácil de mezclar
+  const parejo = mejorPuro / energia;                 // qué tan repetido es el golpe (0 a 1)
+  const salto = Math.sqrt(energia / (envE || 1));     // qué tan fuerte golpea comparado con el sonido de fondo
+  return {bpm: Math.round(bpm), pulso: Math.max(1, Math.min(100, Math.round(100 * parejo * Math.max(0, Math.min(1, (salto - 0.06) / 0.08)))))};
 }
 let clasificando = false;
 $('bClasificar').onclick = async () => {
   if(clasificando) return;
   if(!lista.length){ $('estadoClas').textContent = 'Primero elige tu carpeta de música.'; return; }
   clasificando = true; $('bClasificar').disabled = true;
-  const pend = lista.filter(c => !c.genero || !c.bpm);
+  const pend = lista.filter(c => !c.genero || !c.bpm || !c.pulso);
   let n = 0;
   for(const c of pend){
     n++;
@@ -1050,7 +1082,7 @@ $('bClasificar').onclick = async () => {
     try{
       if(!c.leido) await leerEtiquetas(c);
       if(!c.genero && c.artista) c.genero = await generoMB(c.artista);
-      if(!c.bpm) c.bpm = await detectarBPM(c);
+      if(!c.bpm || !c.pulso){ const a = await detectarBPM(c); c.bpm = a.bpm; c.pulso = a.pulso; }
       guardarCancion(c);
       if(n % 5 === 0) pintarLista();
     }catch(e){}
@@ -1058,6 +1090,7 @@ $('bClasificar').onclick = async () => {
   pintarLista(); guardarEstado();
   const sinG = lista.filter(c => !c.genero).length;
   $('estadoClas').textContent = `✔ Listo. ${lista.length - sinG} con género` + (sinG ? ` · ${sinG} sin género (usa 🔍 Reconocer para saber el artista y vuelve a clasificar)` : '') + '.';
+  $('estadoClas').textContent += ` 🎚 ${lista.filter(mezclable).length} de ${lista.length} se pueden mezclar: míralas en "Ver por → 🎚 Mezcla DJ".`;
   clasificando = false; $('bClasificar').disabled = false;
 };
 
