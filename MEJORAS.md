@@ -5,10 +5,10 @@
 - [x] Ecualizador de 5 barras con ajustes listos y tope para que no sature (13 nov); queda guardado y va en el respaldo
 - [x] Clasificación "Mezcla DJ": mezclables / no mezclables y grupos por velocidad (13 nov)
 - [x] Estéreo rehecho: se adapta a cada canción, medidor izquierda/derecha y prueba de parlantes (13 nov)
+- [x] Audio 8D (13 nov): el sonido gira alrededor de la cabeza, 3 velocidades; para audífonos
 
 ## Pendientes / ideas
 - [ ] Mezcla DJ también cuando se escucha por Android Auto (ahora Android Auto toca una tras otra)
 - [ ] Entrar en el inicio de un compás/frase (no solo en un golpe)
 - [ ] Mezclar también canciones de velocidades muy distintas con un efecto de transición (eco/filtro)
-- [ ] Audio 8D / 3D (el sonido gira alrededor de la cabeza, para audífonos)
 - [ ] Ecualizador y estéreo también en Android Auto

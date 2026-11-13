@@ -98,6 +98,13 @@
     <div id="medidor"><span>Izq.</span><div><i id="mL"></i></div><span>Der.</span><div><i id="mR"></i></div></div>
     <div id="estEstado"></div>
     <button id="bProbar" style="width:100%;margin-top:8px;font-size:14px;padding:10px">🔊 Probar parlante izquierdo y derecho</button>
+    <div style="margin-top:14px;font-size:15px;color:var(--mut)">🌀 Audio 8D — el sonido gira a tu alrededor (solo con audífonos)</div>
+    <div class="est" id="ochoChips">
+      <button data-s="0">Apagado</button>
+      <button data-s="14">Lento</button>
+      <button data-s="9">Normal</button>
+      <button data-s="5">Rápido</button>
+    </div>
     <div style="margin-top:14px;font-size:15px;color:var(--mut)">🎛 Ecualizador</div>
     <div class="chips" id="eqChips"></div>
     <div id="eq"></div>
@@ -235,7 +242,7 @@ function estado(){
     etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm).map(c => [c.nombre, {titulo:c.titulo||'', artista:c.artista||'', album:c.album||'', anio:c.anio||'', genero:c.genero||'', bpm:c.bpm||0, pulso:c.pulso||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
     vista,
     clave: claveGuardada(), actual: lista[actual]?.nombre || null,
-    posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg, eq: eqVals };
+    posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg, eq: eqVals, ocho: ochoSeg };
 }
 const APP = !!window.AndroidJAT;   // dentro de la app Android
 let syncTimer = null;
@@ -260,6 +267,7 @@ function aplicarEstado(e, conPos, soloLista = false){
     aleatorio = !!e.aleatorio; repetir = !!e.repetir; pintarModos();
     if(e.estereo && PRESETS[e.estereo]) ponerEstereo(e.estereo, false);
     if(Array.isArray(e.eq) && e.eq.length === 5) ponerEQ(e.eq, false);
+    if(typeof e.ocho === 'number') poner8D(e.ocho, false);
   }
   if(e.etiquetas) lista.forEach(c => {
     const t = e.etiquetas[c.nombre]; if(!t) return;
@@ -343,13 +351,42 @@ function armarAudio(){
     // Ecualizador: 5 filtros en fila + un ajuste de volumen para que al subir una barra no sature
     eqPre = g(1);
     eqNodos = EQ_BANDAS.map(b => { const f = c.createBiquadFilter(); f.type = b.tipo; f.frequency.value = b.hz; f.Q.value = 0.9; f.gain.value = 0; return f; });
-    gMusica.connect(eqPre); eqPre.connect(eqNodos[0]);
+    // ---- Audio 8D: la canción se junta en un solo punto y ese punto da vueltas alrededor de la cabeza ----
+    post8 = g(1);
+    ochoSeco = g(1); gMusica.connect(ochoSeco); ochoSeco.connect(post8);          // sonido sin girar
+    const uno = g(1); uno.channelCountMode = 'explicit'; uno.channelCount = 1; uno.channelInterpretation = 'speakers'; gMusica.connect(uno);
+    const pan = c.createPanner();
+    pan.panningModel = 'HRTF';            // imita cómo la cabeza y las orejas cambian el sonido según de dónde viene
+    pan.distanceModel = 'linear'; pan.rolloffFactor = 0;                          // sin bajar el volumen por distancia
+    pan.positionX.value = 0; pan.positionY.value = 0; pan.positionZ.value = 0;
+    // dos ondas lentas mueven el punto en círculo: una de lado a lado y otra de adelante hacia atrás
+    ochoOscX = c.createOscillator(); ochoOscZ = c.createOscillator();
+    ochoOscZ.setPeriodicWave(c.createPeriodicWave(new Float32Array([0, 1]), new Float32Array([0, 0])));   // coseno
+    ochoOscX.frequency.value = ochoOscZ.frequency.value = 1 / 9;
+    const radioX = g(1), radioZ = g(-1);                                          // empieza adelante y gira hacia la derecha
+    ochoOscX.connect(radioX); radioX.connect(pan.positionX); ochoOscZ.connect(radioZ); radioZ.connect(pan.positionZ);
+    ochoOscX.start(); ochoOscZ.start();
+    // refuerzo: además, el lado contrario baja de volumen cuando el sonido está a un costado (se nota más el giro)
+    const spO = c.createChannelSplitter(2), mgO = c.createChannelMerger(2), gIzq = g(1), gDer = g(1);
+    const aIzq = g(-0.45), aDer = g(0.45);
+    ochoOscX.connect(aIzq); aIzq.connect(gIzq.gain); ochoOscX.connect(aDer); aDer.connect(gDer.gain);
+    // cuando pasa por detrás se apagan los agudos (como hace la oreja con lo que viene de atrás); adelante suena brillante
+    const atras = c.createBiquadFilter(); atras.type = 'lowpass'; atras.Q.value = 0.5; atras.frequency.value = 6000;
+    const abre = g(1700); ochoOscZ.connect(abre); abre.connect(atras.detune);      // adelante ≈16 kHz, atrás ≈2,2 kHz
+    uno.connect(pan); pan.connect(atras); atras.connect(spO); spO.connect(gIzq, 0); spO.connect(gDer, 1); gIzq.connect(mgO, 0, 0); gDer.connect(mgO, 0, 1);
+    ochoGira = g(0); mgO.connect(ochoGira); ochoGira.connect(post8);
+    // un poco de eco de sala: hace que suene "afuera" de la cabeza
+    const largoEco = Math.floor(c.sampleRate * 1.1), eco = c.createBuffer(2, largoEco, c.sampleRate);
+    for(let ch = 0; ch < 2; ch++){ const d = eco.getChannelData(ch); for(let i = 0; i < largoEco; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / largoEco, 3.5); }
+    const sala = c.createConvolver(); sala.normalize = true; sala.buffer = eco;
+    ochoEco = g(0); uno.connect(sala); sala.connect(ochoEco); ochoEco.connect(post8);
+    post8.connect(eqPre); eqPre.connect(eqNodos[0]);
     for(let k = 1; k < eqNodos.length; k++) eqNodos[k - 1].connect(eqNodos[k]);
     // tope suave al final del ecualizador (misma curva del efecto estéreo): nunca sale más fuerte que el máximo
     const topeEQ = c.createWaveShaper(); topeEQ.curve = curva; topeEQ.oversample = '2x';
     const antesTopeEQ = g(0.6); eqNodos[eqNodos.length - 1].connect(antesTopeEQ); antesTopeEQ.connect(topeEQ);
     eqCon = g(0); topeEQ.connect(eqCon);
-    eqSin = g(1); gMusica.connect(eqSin);                    // con todo en 0 el ecualizador se salta: sonido intacto
+    eqSin = g(1); post8.connect(eqSin);                    // con todo en 0 el ecualizador se salta: sonido intacto
     nFin = g(1); eqCon.connect(nFin); eqSin.connect(nFin); nFin.connect(c.destination);
     // Medidor izquierda / derecha de lo que realmente sale
     const spM = c.createChannelSplitter(2); nFin.connect(spM);
@@ -366,7 +403,7 @@ function armarAudio(){
     });
     gDeck = gd; gBajo = gb; ctxA = c;
     c.onstatechange = () => { if(c.state !== 'running' && !audio.paused) c.resume().catch(() => {}); };
-    aplicarEstereo(true); aplicarEQ(true);
+    aplicarEstereo(true); aplicar8D(true); aplicarEQ(true);
   }catch(e){
     audioRoto = (e && e.message) || 'error';
     anL = anR = anM = anS = null;
@@ -423,13 +460,21 @@ function pintarEstadoEstereo(){
   const nombre = {normal: 'Sonido original', amplio: '✔ Ampliado activo', maximo: '✔ Máximo activo', mono: '✔ Mono→Estéreo activo'}[modoEst];
   el.textContent = nombre + (amplitudEst !== null ? ` · separación entre lados: ${amplitudEst}%` : (ctxA ? '' : ' · toca ▶ para medir'));
 }
+let ultimaMedida = null;
 function leerMedidor(){
   if(!ctxA || !anL) return null;
-  const N = anL.fftSize, l = new Float32Array(N), r = new Float32Array(N);
-  anL.getFloatTimeDomainData(l); anR.getFloatTimeDomainData(r);
+  const N = anL.fftSize, l = new Float32Array(N), r = new Float32Array(N), otra = new Float32Array(N);
+  // Los dos lados deben ser del MISMO instante: se lee izquierda, derecha e izquierda otra vez;
+  // si el audio avanzó en medio, se repite (hasta 3 veces) y si no, se deja la medida anterior
+  let bien = false;
+  for(let k = 0; k < 3 && !bien; k++){
+    anL.getFloatTimeDomainData(l); anR.getFloatTimeDomainData(r); anL.getFloatTimeDomainData(otra);
+    bien = otra[0] === l[0] && otra[N - 1] === l[N - 1] && otra[N >> 1] === l[N >> 1];
+  }
+  if(!bien) return ultimaMedida;
   let ll = 0, rr = 0, lr = 0;
   for(let i = 0; i < N; i++){ ll += l[i]*l[i]; rr += r[i]*r[i]; lr += l[i]*r[i]; }
-  return {izq: Math.sqrt(ll / N), der: Math.sqrt(rr / N), corr: ll > 1e-9 && rr > 1e-9 ? lr / Math.sqrt(ll * rr) : null};
+  return ultimaMedida = {izq: Math.sqrt(ll / N), der: Math.sqrt(rr / N), corr: ll > 1e-9 && rr > 1e-9 ? lr / Math.sqrt(ll * rr) : null};
 }
 let corrSuave = null;
 setInterval(() => {
@@ -474,6 +519,23 @@ $('bProbar').onclick = async () => {
 };
 ponerEstereo('normal', false);
 
+/* ---------- Audio 8D ---------- */
+let ochoSeg = 0, post8 = null, ochoSeco = null, ochoGira = null, ochoEco = null, ochoOscX = null, ochoOscZ = null;   // ochoSeg: segundos por vuelta (0 = apagado)
+function aplicar8D(ya = false){
+  if(!ctxA || !ochoGira) return;
+  const t = ctxA.currentTime, k = ya ? 0.001 : 0.25, on = ochoSeg > 0;
+  [[ochoSeco, on ? 0.15 : 1], [ochoGira, on ? 0.9 : 0], [ochoEco, on ? 0.22 : 0]]
+    .forEach(([n, v]) => { n.gain.cancelScheduledValues(t); n.gain.setTargetAtTime(v, t, k); });
+  if(on) [ochoOscX, ochoOscZ].forEach(o => { o.frequency.cancelScheduledValues(t); o.frequency.setTargetAtTime(1 / ochoSeg, t, 0.3); });
+}
+function poner8D(seg, guardar = true){
+  ochoSeg = [0, 14, 9, 5].includes(+seg) ? +seg : 0;
+  document.querySelectorAll('#ochoChips button').forEach(b => b.classList.toggle('on', +b.dataset.s === ochoSeg));
+  aplicar8D(); aplicarEQ();
+  if(guardar) guardarEstado();
+}
+document.querySelectorAll('#ochoChips button').forEach(b => b.onclick = () => { despertarAudio(); poner8D(+b.dataset.s); });
+
 /* ---------- Ecualizador ---------- */
 const EQ_BANDAS = [
   {nombre: 'Graves',   hz: 110,   tipo: 'lowshelf'},
@@ -491,9 +553,9 @@ function aplicarEQ(ya = false){
   if(!ctxA || !eqNodos) return;
   const t = ctxA.currentTime, k = ya ? 0.001 : 0.03;
   eqNodos.forEach((f, i) => { f.gain.cancelScheduledValues(t); f.gain.setTargetAtTime(eqVals[i], t, k); });
-  const sube = Math.max(0, ...eqVals);                     // lo que más se sube…
+  const sube = Math.max(0, ...eqVals) + (ochoSeg ? 2.5 : 0);   // lo que más se sube (y un margen si gira en 8D)…
   eqPre.gain.cancelScheduledValues(t); eqPre.gain.setTargetAtTime(Math.pow(10, -sube / 20), t, k);   // …se baja antes, para no saturar
-  const activo = eqVals.some(v => v !== 0);
+  const activo = eqVals.some(v => v !== 0) || ochoSeg > 0;   // el 8D también pasa por el tope final
   eqCon.gain.cancelScheduledValues(t); eqCon.gain.setTargetAtTime(activo ? 1 : 0, t, k);
   eqSin.gain.cancelScheduledValues(t); eqSin.gain.setTargetAtTime(activo ? 0 : 1, t, k);
 }
@@ -517,6 +579,7 @@ Object.keys(EQ_PRESETS).forEach(n => {
   $('eqChips').append(b);
 });
 ponerEQ(eqVals, false);
+poner8D(0, false);
 
 /* ---------- Modo DJ: mezcla como un DJ (une los golpes de las dos canciones) ----------
    1) Cada canción se analiza: dónde empieza a sonar (ini), dónde empieza a apagarse sola (sal),
