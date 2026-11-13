@@ -127,6 +127,12 @@
     <ul id="lista"></ul>
   </div>
 
+  <div class="card" id="cardApp" style="display:none">
+    <b>🚗 Android Auto</b>
+    <div class="nota">En el carro tu música aparece por géneros, ritmo, carpetas, artistas y álbumes. Los géneros y ritmos que clasifiques aquí pasan solos al carro.</div>
+    <button id="bAjustesApp" style="width:100%;margin-top:10px">⚙ Activar en Android Auto y ajustes</button>
+  </div>
+
   <div class="card">
     <b>Clave de reconocimiento (AcoustID)</b>
     <div class="nota">Es gratis. Entra a <a href="https://acoustid.org/new-application" target="_blank" rel="noopener">acoustid.org/new-application</a>,
@@ -217,7 +223,12 @@ function estado(){
     clave: claveGuardada(), actual: lista[actual]?.nombre || null,
     posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg };
 }
-function guardarEstado(){ try{ localStorage.setItem('reproductorJAT_estado', JSON.stringify(estado())); }catch(e){} }
+const APP = !!window.AndroidJAT;   // dentro de la app Android
+let syncTimer = null;
+function guardarEstado(){
+  try{ localStorage.setItem('reproductorJAT_estado', JSON.stringify(estado())); }catch(e){}
+  if(APP){ clearTimeout(syncTimer); syncTimer = setTimeout(() => { try{ AndroidJAT.sincronizar(JSON.stringify(estado())); }catch(e){} }, 3000); }
+}
 function leerEstado(){ try{ return JSON.parse(localStorage.getItem('reproductorJAT_estado')); }catch(e){ return null; } }
 
 function aplicarEstado(e, conPos){
@@ -441,6 +452,11 @@ function detalle(c){ return [c.artista, c.album].filter(Boolean).join(' · '); }
 /* ---------- Obtener el audio de una canción ---------- */
 async function archivoDe(c){
   if(c.blob) return c.blob;
+  if(APP && c.mid){
+    const r = await fetch('/musica/' + c.mid);
+    if(!r.ok) throw new Error('no se pudo leer');
+    return await r.blob();   // no se guarda en memoria: se pide cada vez
+  }
   if(!c.deCarpeta || !carpeta) throw new Error('sin carpeta');
   let h = carpeta; const partes = c.ruta.split('/');
   for(let i = 0; i < partes.length - 1; i++) h = await h.getDirectoryHandle(partes[i]);
@@ -492,6 +508,7 @@ async function leerPendientes(){
 let urlPortada = null;
 function mostrarActual(){
   const c = lista[actual]; if(!c) return;
+  setTimeout(avisarApp, 0);
   $('titulo').textContent = titulo(c);
   const v = visibles(), pv = v.indexOf(actual);
   $('sub').textContent = (detalle(c) ? detalle(c) + ' — ' : '') + (pv >= 0 ? `Canción ${pv+1} de ${v.length}` : `Canción ${actual+1} de ${lista.length}`);
@@ -561,8 +578,13 @@ function anterior(){
   irA(p > 0 ? v[p - 1] : v[v.length - 1]);
 }
 
-enAudios('play', () => { $('bPlay').textContent = '⏸'; $('disco').classList.add('gira'); });
-enAudios('pause', () => { $('bPlay').textContent = '▶'; $('disco').classList.remove('gira'); guardarEstado(); });
+enAudios('play', () => { $('bPlay').textContent = '⏸'; $('disco').classList.add('gira'); avisarApp(); });
+enAudios('pause', () => { $('bPlay').textContent = '▶'; $('disco').classList.remove('gira'); guardarEstado(); avisarApp(); });
+function avisarApp(){
+  if(!APP) return;
+  const c = lista[actual];
+  try{ AndroidJAT.estado(c ? titulo(c) : '', c ? (c.artista || '') : '', !audio.paused); }catch(e){}
+}
 enAudios('ended', () => siguiente(true));
 enAudios('loadedmetadata', () => { $('barra').max = audio.duration || 0; $('tTot').textContent = fmt(audio.duration); });
 let ultimoGuardado = 0;
@@ -895,6 +917,10 @@ $('bClasificar').onclick = async () => {
 
 /* ---------- Respaldo en archivo ---------- */
 $('bResp').onclick = () => {
+  if(APP){
+    try{ AndroidJAT.guardarRespaldo('respaldo_reproductor_' + new Date().toISOString().slice(0,10) + '.json', JSON.stringify(estado(), null, 2)); }catch(e){}
+    return;
+  }
   const b = new Blob([JSON.stringify(estado(), null, 2)], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(b);
@@ -1130,6 +1156,34 @@ async function cargarLetra(){
   }
 }
 
+/* ---------- Música del celular (dentro de la app Android) ---------- */
+function sincronizarApp(){
+  let arr;
+  try{ arr = JSON.parse(AndroidJAT.canciones()); }catch(e){ return; }
+  if(!Array.isArray(arr)){ infoCarpeta('⚠ Falta el permiso para leer tu música. Toca el botón de arriba.'); return; }
+  const mapa = new Map(arr.map(x => [x.ruta, x]));
+  const {nuevas, quitadas} = aplicarRutas([...mapa.keys()]);
+  lista.forEach(c => { if(c.deCarpeta && mapa.has(c.ruta)) c.mid = mapa.get(c.ruta).id; });
+  const total = lista.filter(c => c.deCarpeta).length;
+  infoCarpeta(`📱 Música del celular: ${total} canciones` + (nuevas ? ` · ${nuevas} nuevas` : '') + (quitadas ? ` · ${quitadas} ya no están` : '') +
+    ` · revisada ${new Date().toLocaleTimeString('es-EC', {hour:'2-digit', minute:'2-digit'})}`);
+  if(nuevas || quitadas){ pintarLista(); guardarEstado(); leerPendientes(); }
+  if(cargaPend && !audio.src){ const p = cargaPend; cargaPend = null; if(lista[p.i]) cargar(p.i, false, p.desde); }
+  else if(actual >= 0 && !audio.src) cargar(actual, false, (leerEstado() || {}).posicion || 0);
+  else if(actual < 0 && lista.length) cargar(visibles()[0] ?? 0, false);
+}
+function iniciarApp(){
+  $('bCarpeta').textContent = '🔄 Buscar canciones nuevas';
+  $('bCarpeta').onclick = () => { try{ AndroidJAT.pedirPermiso(); }catch(e){} sincronizarApp(); };
+  $('cardApp').style.display = '';
+  $('bAjustesApp').onclick = () => { try{ AndroidJAT.abrirAjustes(); }catch(e){} };
+  sincronizarApp();
+  setInterval(() => { if(document.visibilityState === 'visible') sincronizarApp(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') sincronizarApp(); });
+  // botones de la notificación del celular
+  window.appOrden = o => { if(o === 'play') play(); else if(o === 'sig') siguiente(false); else if(o === 'ant') anterior(); else if(o === 'pausa') audio.pause(); };
+}
+
 /* ---------- Inicio ---------- */
 (async () => {
   try{ await abrirDB(); lista = await leerTodas(); }catch(e){ lista = []; }
@@ -1137,7 +1191,7 @@ async function cargarLetra(){
   if(e){ respaldoPend = e; aplicarEstado(e, true); }
   $('clave').value = claveGuardada();
   pintarLista();
-  await iniciarCarpeta();
+  if(APP) iniciarApp(); else await iniciarCarpeta();
   leerPendientes();
 })();
 </script>

@@ -59,6 +59,65 @@ object Respaldo {
         return etiquetas.length()
     }
 
+    private var ultimoPublicoWeb = 0L
+
+    /** Llega desde el reproductor (pantalla principal) cada vez que cambia algo. */
+    fun sincronizarWeb(ctx: Context, texto: String) {
+        try {
+            val json = JSONObject(texto)
+            val etiquetas = json.optJSONObject("etiquetas") ?: JSONObject()
+            val previo = etiquetasWeb(ctx)
+            val keys = etiquetas.keys()
+            while (keys.hasNext()) { val k = keys.next(); previo.put(k, etiquetas.get(k)) }
+            File(ctx.filesDir, ARCHIVO_WEB).writeText(JSONObject().put("etiquetas", previo).toString())
+            Biblioteca.sucia = true
+            // copia automática en Descargas (máximo una vez por minuto)
+            val ahora = System.currentTimeMillis()
+            if (ahora - ultimoPublicoWeb > 60_000) {
+                ultimoPublicoWeb = ahora
+                escribirPublico(ctx, "uriPublicoWeb", "respaldo_reproductor_auto.json", texto.toByteArray())
+            }
+        } catch (e: Exception) {
+        }
+    }
+
+    /** Botón 💾 del reproductor: archivo nuevo en Descargas/ReproductorJAT. */
+    fun guardarEnDescargas(ctx: Context, nombre: String, texto: String): Boolean {
+        if (Build.VERSION.SDK_INT < 29) return false
+        return try {
+            val v = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, nombre)
+                put(MediaStore.Downloads.MIME_TYPE, "application/json")
+                put(MediaStore.Downloads.RELATIVE_PATH, "Download/ReproductorJAT")
+            }
+            val uri = ctx.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v) ?: return false
+            ctx.contentResolver.openOutputStream(uri, "wt")?.use { it.write(texto.toByteArray()) }
+            true
+        } catch (e: Exception) { false }
+    }
+
+    private fun escribirPublico(ctx: Context, clave: String, nombre: String, datos: ByteArray) {
+        if (Build.VERSION.SDK_INT < 29) return
+        try {
+            val guardada = prefs(ctx).getString(clave, null)?.let { Uri.parse(it) }
+            if (guardada != null) {
+                try {
+                    ctx.contentResolver.openOutputStream(guardada, "wt")?.use { it.write(datos) }
+                    return
+                } catch (e: Exception) { }
+            }
+            val v = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, nombre)
+                put(MediaStore.Downloads.MIME_TYPE, "application/json")
+                put(MediaStore.Downloads.RELATIVE_PATH, "Download/ReproductorJAT")
+            }
+            val nueva = ctx.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v) ?: return
+            ctx.contentResolver.openOutputStream(nueva, "wt")?.use { it.write(datos) }
+            prefs(ctx).edit().putString(clave, nueva.toString()).apply()
+        } catch (e: Exception) {
+        }
+    }
+
     fun contenido(ctx: Context): String = JSONObject()
         .put("app", "Reproductor JAT Android")
         .put("version", 1)

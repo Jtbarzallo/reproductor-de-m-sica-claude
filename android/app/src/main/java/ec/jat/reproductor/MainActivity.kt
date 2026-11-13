@@ -1,94 +1,121 @@
 package ec.jat.reproductor
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
-import android.content.ComponentName
+import android.content.ContentUris
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.Gravity
-import android.view.View
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.Switch
-import android.widget.TextView
+import android.provider.MediaStore
+import android.webkit.JavascriptInterface
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Toast
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.session.MediaController
-import androidx.media3.session.SessionToken
-import com.google.common.util.concurrent.ListenableFuture
-import java.util.concurrent.Executor
-import java.util.concurrent.Executors
+import androidx.webkit.WebViewAssetLoader
+import org.json.JSONArray
+import org.json.JSONObject
+import java.lang.ref.WeakReference
 
+/**
+ * Pantalla principal: el reproductor completo (menú, estéreo, letras, modo DJ, clasificar…)
+ * leyendo la música del celular. Android Auto usa su propio motor (PlaybackService).
+ */
 class MainActivity : Activity() {
 
-    private val FONDO = Color.parseColor("#0F1220")
-    private val TARJETA = Color.parseColor("#1A1F35")
-    private val ACENTO = Color.parseColor("#4FD1C5")
-    private val TEXTO = Color.parseColor("#EEF1FF")
-    private val GRIS = Color.parseColor("#9AA3C7")
+    companion object {
+        private var actual: WeakReference<MainActivity>? = null
 
-    private val main = Handler(Looper.getMainLooper())
-    private val trabajo = Executors.newSingleThreadExecutor()
-    private val enMain = Executor { main.post(it) }
-    private lateinit var cont: LinearLayout
-    private var futuro: ListenableFuture<MediaController>? = null
-    private var control: MediaController? = null
-    private var txtSonando: TextView? = null
-    private var btnPlay: Button? = null
+        /** Ordenes desde la notificación o desde Android Auto. */
+        fun orden(o: String) {
+            val a = actual?.get() ?: return
+            a.main.post { a.web.evaluateJavascript("window.appOrden && appOrden('$o')", null) }
+        }
+    }
 
+    val main = Handler(Looper.getMainLooper())
+    lateinit var web: WebView
+    private var elegirArchivo: ValueCallback<Array<Uri>>? = null
+    private val REQ_ARCHIVO = 20
     private val REQ_PERMISO = 1
-    private val REQ_IMPORTAR = 10
-    private val REQ_EXPORTAR = 11
 
+    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = FONDO
-        val scroll = ScrollView(this)
-        scroll.setBackgroundColor(FONDO)
-        scroll.fitsSystemWindows = true
-        cont = LinearLayout(this)
-        cont.orientation = LinearLayout.VERTICAL
-        cont.setPadding(dp(14), dp(14), dp(14), dp(40))
-        scroll.addView(cont)
-        setContentView(scroll)
+        actual = WeakReference(this)
+        window.statusBarColor = Color.parseColor("#0F1220")
+        window.navigationBarColor = Color.parseColor("#0F1220")
+        WebService.crearCanal(this)
+
+        val cargador = WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .addPathHandler("/musica/", WebViewAssetLoader.PathHandler { ruta -> abrirCancion(ruta) })
+            .build()
+
+        web = WebView(this)
+        web.setBackgroundColor(Color.parseColor("#0F1220"))
+        web.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            databaseEnabled = true
+            mediaPlaybackRequiresUserGesture = false
+            allowFileAccess = false
+            allowContentAccess = false
+        }
+        web.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+                cargador.shouldInterceptRequest(request.url)
+
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                // enlaces externos (por ejemplo acoustid.org) se abren en el navegador
+                if (request.url.host != "appassets.androidplatform.net") {
+                    try { startActivity(Intent(Intent.ACTION_VIEW, request.url)) } catch (e: Exception) {}
+                    return true
+                }
+                return false
+            }
+        }
+        web.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(
+                webView: WebView, filePathCallback: ValueCallback<Array<Uri>>, fileChooserParams: FileChooserParams
+            ): Boolean {
+                elegirArchivo?.onReceiveValue(null)
+                elegirArchivo = filePathCallback
+                val i = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    val tipos = fileChooserParams.acceptTypes.filter { it.isNotBlank() }
+                    type = if (tipos.size == 1 && tipos[0].contains('/')) tipos[0] else "*/*"
+                    if (fileChooserParams.mode == FileChooserParams.MODE_OPEN_MULTIPLE) putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                }
+                return try { startActivityForResult(i, REQ_ARCHIVO); true } catch (e: Exception) {
+                    elegirArchivo = null; false
+                }
+            }
+        }
+        web.addJavascriptInterface(Puente(), "AndroidJAT")
+        setContentView(web)
+        web.loadUrl("https://appassets.androidplatform.net/assets/web/index.html")
         pedirPermisos()
     }
 
-    override fun onStart() {
-        super.onStart()
-        val token = SessionToken(this, ComponentName(this, PlaybackService::class.java))
-        val f = MediaController.Builder(this, token).buildAsync()
-        futuro = f
-        f.addListener({
-            try {
-                control = f.get()
-                control?.addListener(object : Player.Listener {
-                    override fun onEvents(player: Player, events: Player.Events) { pintarSonando() }
-                })
-                pintarSonando()
-            } catch (e: Exception) {}
-        }, enMain)
-    }
+    // No se pausa el WebView al salir de la app: la música sigue sonando.
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() { moveTaskToBack(true) }
 
-    override fun onStop() {
-        futuro?.let { MediaController.releaseFuture(it) }
-        control = null
-        super.onStop()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        Biblioteca.sucia = true
-        dibujar()
+    override fun onDestroy() {
+        if (actual?.get() === this) actual = null
+        WebService.detener(this)
+        web.destroy()
+        super.onDestroy()
     }
 
     private fun pedirPermisos() {
@@ -103,196 +130,86 @@ class MainActivity : Activity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         Biblioteca.sucia = true
-        dibujar()
-    }
-
-    // ------------------------------------------------------------------ pantalla
-
-    private fun dibujar() {
-        trabajo.execute {
-            val permiso = Biblioteca.tienePermiso(this)
-            val canciones = if (permiso) Biblioteca.canciones(this) else emptyList()
-            val conGenero = canciones.count { it.genero.isNotEmpty() }
-            val conRitmo = canciones.count { it.bpm > 0 }
-            main.post { if (!isFinishing) pintar(permiso, canciones.size, conGenero, conRitmo) }
-        }
-    }
-
-    private fun pintar(permiso: Boolean, total: Int, conGenero: Int, conRitmo: Int) {
-        cont.removeAllViews()
-        cont.addView(texto("🎵 Reproductor JAT", 24f, ACENTO, true))
-        cont.addView(texto("Tu música en el celular y en Android Auto", 14f, GRIS).apply { setPadding(0, 0, 0, dp(10)) })
-
-        if (!permiso) {
-            val c = tarjeta()
-            c.addView(texto("Paso 1: dar permiso", 18f, TEXTO, true))
-            c.addView(texto("La app necesita permiso para leer la música del celular.", 15f, TEXTO))
-            c.addView(boton("Dar permiso") { pedirPermisos() })
-            c.addView(boton("Abrir ajustes de la app", secundario = true) {
-                startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    android.net.Uri.parse("package:$packageName")))
-            })
-            return
-        }
-
-        // --- lo que suena ---
-        val s = tarjeta()
-        txtSonando = texto("", 17f, TEXTO, true)
-        s.addView(txtSonando)
-        val fila = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        fila.addView(botonChico("⏮") { control?.seekToPreviousMediaItem() })
-        btnPlay = botonChico("▶") {
-            val c = control ?: return@botonChico
-            if (c.mediaItemCount == 0) mezclarTodo() else if (c.isPlaying) c.pause() else c.play()
-        }
-        fila.addView(btnPlay)
-        fila.addView(botonChico("⏭") { control?.seekToNextMediaItem() })
-        s.addView(fila)
-        s.addView(boton("🔀 Mezclar toda mi música") { mezclarTodo() })
-        pintarSonando()
-
-        // --- biblioteca ---
-        val b = tarjeta()
-        b.addView(texto("📁 Tu música", 18f, TEXTO, true))
-        b.addView(texto(
-            "$total canciones en el celular.\n$conGenero con género · $conRitmo con ritmo.\n" +
-                "Las canciones nuevas que pongas en el celular aparecen solas.", 15f, TEXTO
-        ))
-        b.addView(texto(
-            "Para ver géneros, ritmo y títulos corregidos: en el reproductor web toca 🏷 Clasificar y 💾 Guardar respaldo, " +
-                "y aquí toca \"Importar respaldo\".", 13f, GRIS
-        ).apply { setPadding(0, dp(6), 0, 0) })
-        b.addView(boton("📥 Importar respaldo del reproductor web") {
-            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                addCategory(Intent.CATEGORY_OPENABLE); type = "*/*"
-            }, REQ_IMPORTAR)
-        })
-
-        // --- ajustes ---
-        val a = tarjeta()
-        a.addView(texto("🎚 Ajustes", 18f, TEXTO, true))
-        a.addView(Switch(this).apply {
-            text = "Saltar silencios (inicio, final y huecos de las canciones)"
-            setTextColor(TEXTO); textSize = 15f
-            isChecked = Respaldo.saltarSilencios(this@MainActivity)
-            setPadding(0, dp(8), 0, dp(8))
-            setOnCheckedChangeListener { _, v -> Respaldo.setSaltarSilencios(this@MainActivity, v) }
-        })
-        a.addView(boton("💾 Guardar respaldo", secundario = true) {
-            startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                addCategory(Intent.CATEGORY_OPENABLE); type = "application/json"
-                putExtra(Intent.EXTRA_TITLE, "respaldo_reproductor_android.json")
-            }, REQ_EXPORTAR)
-        })
-        a.addView(texto("Además se guarda solo una copia en Descargas/ReproductorJAT.", 13f, GRIS))
-
-        // --- Android Auto ---
-        val au = tarjeta()
-        au.addView(texto("🚗 Usar en Android Auto", 18f, TEXTO, true))
-        au.addView(texto(
-            "Android Auto solo muestra apps de la Play Store, salvo que actives esto UNA vez:\n\n" +
-                "1. En el celular abre la app Android Auto (Ajustes → Apps conectadas → Android Auto, o búscala en Ajustes).\n" +
-                "2. Baja hasta \"Versión\" y tócala 10 veces seguidas. Acepta el aviso de modo desarrollador.\n" +
-                "3. Toca los ⋮ de arriba → \"Configuración para desarrolladores\".\n" +
-                "4. Activa \"Fuentes desconocidas\" (Unknown sources).\n" +
-                "5. Desconecta y vuelve a conectar el celular al carro.\n" +
-                "6. En la pantalla del carro toca el ícono de música / apps y elige \"Reproductor JAT\".\n" +
-                "   Si no aparece: en el carro, en la lista de apps → Personalizar, y actívala.",
-            14f, TEXTO
-        ))
-        au.addView(boton("Abrir ajustes de Android Auto", secundario = true) { abrirAndroidAuto() })
-        au.addView(texto(
-            "En el carro verás: Todas · Géneros · Ritmo · Más (carpetas, artistas, álbumes, años). " +
-                "También puedes decir \"Ok Google, pon salsa en Reproductor JAT\".", 13f, GRIS
-        ).apply { setPadding(0, dp(6), 0, 0) })
-    }
-
-    private fun mezclarTodo() {
-        val c = control ?: return
-        val item = MediaItem.Builder().setMediaId(Biblioteca.idTodoContexto("aleatorio")).build()
-        c.setMediaItem(item)
-        c.prepare(); c.play()
-    }
-
-    private fun pintarSonando() {
-        val c = control
-        val t = txtSonando ?: return
-        val m = c?.mediaMetadata
-        t.text = if (c == null || c.mediaItemCount == 0) "Nada sonando"
-        else listOfNotNull(m?.title?.toString(), m?.artist?.toString()).joinToString(" — ").ifEmpty { "Sonando" }
-        btnPlay?.text = if (c?.isPlaying == true) "⏸" else "▶"
-    }
-
-    private fun abrirAndroidAuto() {
-        val intentos = listOf(
-            Intent().setComponent(ComponentName("com.google.android.projection.gearhead",
-                "com.google.android.apps.auto.carservice.service.impl.CarSettingsActivity")),
-            packageManager.getLaunchIntentForPackage("com.google.android.projection.gearhead"),
-            Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                android.net.Uri.parse("package:com.google.android.projection.gearhead")),
-        )
-        for (i in intentos) {
-            if (i == null) continue
-            try { startActivity(i); return } catch (e: Exception) {}
-        }
-        Toast.makeText(this, "No encontré Android Auto en este celular", Toast.LENGTH_LONG).show()
+        web.evaluateJavascript("window.sincronizarApp && sincronizarApp()", null)
     }
 
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        val uri = data?.data ?: return
-        if (resultCode != RESULT_OK) return
-        trabajo.execute {
-            val msg = try {
-                when (requestCode) {
-                    REQ_IMPORTAR -> "✔ Respaldo importado: ${Respaldo.importar(this, uri)} canciones con datos"
-                    REQ_EXPORTAR -> { Respaldo.exportar(this, uri); "✔ Respaldo guardado" }
-                    else -> null
+        if (requestCode != REQ_ARCHIVO) return
+        val cb = elegirArchivo ?: return
+        elegirArchivo = null
+        if (resultCode != RESULT_OK || data == null) { cb.onReceiveValue(null); return }
+        val uris = mutableListOf<Uri>()
+        data.clipData?.let { cd -> for (k in 0 until cd.itemCount) uris.add(cd.getItemAt(k).uri) }
+        if (uris.isEmpty()) data.data?.let { uris.add(it) }
+        cb.onReceiveValue(uris.toTypedArray())
+    }
+
+    /** Entrega el audio de una canción del celular a la página (/musica/<id>). */
+    private fun abrirCancion(ruta: String): WebResourceResponse? {
+        val id = ruta.trim('/').toLongOrNull() ?: return null
+        return try {
+            val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+            val tipo = contentResolver.getType(uri) ?: "audio/mpeg"
+            WebResourceResponse(tipo, null, contentResolver.openInputStream(uri))
+        } catch (e: Exception) { null }
+    }
+
+    /** Lo que la página puede pedirle a la app. */
+    inner class Puente {
+
+        @JavascriptInterface
+        fun canciones(): String {
+            if (!Biblioteca.tienePermiso(this@MainActivity)) return "{\"error\":\"permiso\"}"
+            val arr = JSONArray()
+            val col = mutableListOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.DISPLAY_NAME)
+            if (Build.VERSION.SDK_INT >= 29) col.add(MediaStore.Audio.Media.RELATIVE_PATH) else col.add(MediaStore.Audio.Media.DATA)
+            try {
+                contentResolver.query(
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, col.toTypedArray(),
+                    "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, null
+                )?.use { c ->
+                    while (c.moveToNext()) {
+                        val id = c.getLong(0)
+                        val nombre = c.getString(1) ?: continue
+                        val carpeta = if (Build.VERSION.SDK_INT >= 29) (c.getString(2) ?: "").trimEnd('/')
+                        else (c.getString(2) ?: "").substringBeforeLast('/').substringAfter("/0/")
+                        arr.put(JSONObject().put("id", id).put("ruta", if (carpeta.isEmpty()) nombre else "$carpeta/$nombre"))
+                    }
                 }
-            } catch (e: Exception) { "⚠ " + (e.message ?: "No se pudo") }
+            } catch (e: Exception) {}
+            return arr.toString()
+        }
+
+        @JavascriptInterface
+        fun pedirPermiso() { main.post { pedirPermisos() } }
+
+        /** Cada cambio del reproductor: pasa géneros/ritmos a Android Auto y deja respaldo en Descargas. */
+        @JavascriptInterface
+        fun sincronizar(json: String) { Respaldo.sincronizarWeb(this@MainActivity, json) }
+
+        @JavascriptInterface
+        fun guardarRespaldo(nombre: String, json: String) {
+            val ok = Respaldo.guardarEnDescargas(this@MainActivity, nombre, json)
             main.post {
-                if (msg != null) Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
-                dibujar()
+                Toast.makeText(
+                    this@MainActivity,
+                    if (ok) "✔ Respaldo guardado en Descargas/ReproductorJAT" else "⚠ No se pudo guardar el respaldo",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
-    }
 
-    // ------------------------------------------------------------------ piezas
-
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
-
-    private fun texto(t: String, tam: Float, color: Int, negrita: Boolean = false) = TextView(this).apply {
-        text = t; textSize = tam; setTextColor(color)
-        if (negrita) typeface = Typeface.DEFAULT_BOLD
-        setPadding(0, dp(2), 0, dp(2))
-    }
-
-    private fun tarjeta(): LinearLayout {
-        val c = LinearLayout(this)
-        c.orientation = LinearLayout.VERTICAL
-        c.setPadding(dp(16), dp(14), dp(16), dp(14))
-        c.background = GradientDrawable().apply { setColor(TARJETA); cornerRadius = dp(16).toFloat() }
-        val lp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        lp.setMargins(0, dp(6), 0, dp(6))
-        cont.addView(c, lp)
-        return c
-    }
-
-    private fun boton(t: String, secundario: Boolean = false, accion: () -> Unit) = Button(this).apply {
-        text = t; isAllCaps = false; textSize = 15f
-        setTextColor(if (secundario) TEXTO else FONDO)
-        background = GradientDrawable().apply {
-            setColor(if (secundario) Color.parseColor("#263055") else ACENTO); cornerRadius = dp(12).toFloat()
+        @JavascriptInterface
+        fun estado(titulo: String, artista: String, sonando: Boolean) {
+            main.post {
+                if (sonando) PlaybackService.pausarSiSuena()   // que no suenen los dos motores a la vez
+                WebService.actualizar(this@MainActivity, titulo, artista, sonando)
+            }
         }
-        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(52)).apply { topMargin = dp(10) }
-        setOnClickListener { accion() }
-    }
 
-    private fun botonChico(t: String, accion: () -> Unit) = Button(this).apply {
-        text = t; textSize = 22f; setTextColor(FONDO)
-        background = GradientDrawable().apply { setColor(ACENTO); cornerRadius = dp(30).toFloat() }
-        layoutParams = LinearLayout.LayoutParams(dp(64), dp(60)).apply { setMargins(dp(8), dp(10), dp(8), 0) }
-        setOnClickListener { accion() }
+        @JavascriptInterface
+        fun abrirAjustes() { main.post { startActivity(Intent(this@MainActivity, AjustesActivity::class.java)) } }
     }
 }

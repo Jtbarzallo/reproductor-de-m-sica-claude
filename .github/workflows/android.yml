@@ -6,6 +6,9 @@ on:
     paths:
       - "android/**"
       - ".github/workflows/android.yml"
+      - "index.html"
+      - "jsmediatags.min.js"
+      - "chromaprint/**"
   workflow_dispatch:
 
 permissions:
@@ -26,6 +29,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.10.2"
+      - name: Copiar el reproductor dentro de la app
+        run: |
+          mkdir -p app/src/main/assets/web
+          cp ../index.html ../jsmediatags.min.js app/src/main/assets/web/
+          cp -r ../chromaprint app/src/main/assets/web/
       - name: Compilar
         run: |
           set -o pipefail

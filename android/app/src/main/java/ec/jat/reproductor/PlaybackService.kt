@@ -28,6 +28,15 @@ import com.google.common.util.concurrent.ListenableFuture
 /** El "motor" que suena en el celular y que Android Auto muestra en la pantalla del carro. */
 class PlaybackService : MediaLibraryService() {
 
+    companion object {
+        private var instancia: PlaybackService? = null
+        /** Si el motor de Android Auto está sonando, se pausa (para que no suenen los dos). */
+        fun pausarSiSuena() {
+            val s = instancia ?: return
+            if (s::player.isInitialized && s.player.isPlaying) s.player.pause()
+        }
+    }
+
     private var sesion: MediaLibrarySession? = null
     private lateinit var player: ExoPlayer
     private val main = Handler(Looper.getMainLooper())
@@ -56,6 +65,7 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
+        instancia = this
         player = ExoPlayer.Builder(this)
             .setAudioAttributes(
                 AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
@@ -71,6 +81,7 @@ class PlaybackService : MediaLibraryService() {
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (!isPlaying) guardarPosicion()
+                else MainActivity.orden("pausa")   // si suena en el carro, se calla la pantalla principal
             }
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) { actualizarBotones() }
             override fun onRepeatModeChanged(repeatMode: Int) { actualizarBotones() }
@@ -125,6 +136,7 @@ class PlaybackService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
+        if (instancia === this) instancia = null
         guardarPosicion()
         try { contentResolver.unregisterContentObserver(observador) } catch (e: Exception) {}
         getSharedPreferences("reproductor", MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(prefsListener)
