@@ -87,6 +87,13 @@
       <button data-m="maximo">Máximo</button>
       <button data-m="mono">Mono→Estéreo</button>
     </div>
+    <div style="margin-top:12px;font-size:15px;color:var(--mut)">🎚 Modo DJ (mezcla sin silencios)</div>
+    <div class="est" id="djChips">
+      <button data-s="0">Apagado</button>
+      <button data-s="4">Mezcla 4 s</button>
+      <button data-s="8">8 s</button>
+      <button data-s="12">12 s</button>
+    </div>
     <div class="fila" style="margin-top:10px">
       <button id="bLetra">🎤 Letra</button>
       <button id="bRec">🔍 Reconocer sin etiqueta</button>
@@ -146,13 +153,23 @@
   <div id="flotPie">Letras: lrclib.net</div>
 </div>
 <script src="jsmediatags.min.js"></script>
-<audio id="audio" preload="metadata"></audio>
+<audio id="audio" preload="auto"></audio>
+<audio id="audio2" preload="auto"></audio>
 
 <script>
 const $ = id => document.getElementById(id);
-const audio = $('audio');
+const decks = [$('audio'), $('audio2')];
+let audio = decks[0];               // el que suena ahora (en modo DJ se alternan)
+const urls = [null, null];
+function enAudios(ev, fn){ decks.forEach(d => d.addEventListener(ev, e => { if(d === audio) fn(e); })); }
+function otroDeck(){ return decks[0] === audio ? decks[1] : decks[0]; }
+function ponerFuente(deck, blob){
+  const k = decks.indexOf(deck);
+  if(urls[k]) URL.revokeObjectURL(urls[k]);
+  urls[k] = URL.createObjectURL(blob); deck.src = urls[k];
+}
 let lista = [];          // {id, nombre, blob?}
-let actual = -1, aleatorio = false, repetir = false, urlActual = null;
+let actual = -1, aleatorio = false, repetir = false;
 let respaldoPend = null; // respaldo cargado esperando canciones
 
 /* ---------- Base de datos local (IndexedDB) ---------- */
@@ -198,7 +215,7 @@ function estado(){
     etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm).map(c => [c.nombre, {titulo:c.titulo||'', artista:c.artista||'', album:c.album||'', anio:c.anio||'', genero:c.genero||'', bpm:c.bpm||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
     vista,
     clave: claveGuardada(), actual: lista[actual]?.nombre || null,
-    posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst };
+    posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg };
 }
 function guardarEstado(){ try{ localStorage.setItem('reproductorJAT_estado', JSON.stringify(estado())); }catch(e){} }
 function leerEstado(){ try{ return JSON.parse(localStorage.getItem('reproductorJAT_estado')); }catch(e){ return null; } }
@@ -209,7 +226,8 @@ function aplicarEstado(e, conPos){
     const pos = n => { const i = e.orden.indexOf(n); return i < 0 ? 1e9 : i; };
     lista.sort((a,b) => pos(a.nombre) - pos(b.nombre));
   }
-  if(typeof e.volumen === 'number'){ audio.volume = e.volumen; $('vol').value = e.volumen; }
+  if(typeof e.volumen === 'number'){ decks.forEach(d => d.volume = e.volumen); $('vol').value = e.volumen; }
+  if(typeof e.dj === 'number') ponerDJ(e.dj, false);
   aleatorio = !!e.aleatorio; repetir = !!e.repetir; pintarModos();
   if(e.estereo && PRESETS[e.estereo]) ponerEstereo(e.estereo, false);
   if(e.etiquetas) lista.forEach(c => {
@@ -228,16 +246,17 @@ function aplicarEstado(e, conPos){
 /* ---------- Sonido estéreo (Web Audio) ---------- */
 // ancho = cuánto se abre el estéreo; falso = cuánto estéreo se "crea" (sirve para canciones mono)
 const PRESETS = { normal:{ancho:1, falso:0}, amplio:{ancho:1.6, falso:0.25}, maximo:{ancho:2.2, falso:0.4}, mono:{ancho:1, falso:0.65} };
-let modoEst = 'normal', ctxA = null, nAncho = null, nFalso = null;
+let modoEst = 'normal', ctxA = null, nAncho = null, nFalso = null, gDeck = null;
 function armarAudio(){
   if(ctxA) return;
   try{
     ctxA = new (window.AudioContext || window.webkitAudioContext)();
-    const src = ctxA.createMediaElementSource(audio);
     const sp = ctxA.createChannelSplitter(2), mg = ctxA.createChannelMerger(2);
     const g = v => { const n = ctxA.createGain(); n.gain.value = v; return n; };
     const a2 = g(1); a2.channelCountMode = 'explicit'; a2.channelCount = 2; a2.channelInterpretation = 'speakers'; // mono → copia a los 2 lados
-    src.connect(a2); a2.connect(sp);
+    // Dos "platos" (como un DJ): cada uno con su volumen para mezclar
+    gDeck = decks.map(d => { const s = ctxA.createMediaElementSource(d), gn = g(d === audio ? 1 : 0); s.connect(gn); gn.connect(a2); return gn; });
+    a2.connect(sp);
     // Centro (M) y lados (S)
     const mid = g(0.5), side = g(1);
     const lM = g(1), rM = g(1), lS = g(0.5), rS = g(-0.5);
@@ -274,7 +293,144 @@ function ponerEstereo(m, guardar = true){
 }
 document.querySelectorAll('#est button').forEach(b => b.onclick = () => { armarAudio(); if(ctxA && ctxA.state === 'suspended') ctxA.resume(); ponerEstereo(b.dataset.m); });
 ponerEstereo('normal', false);
-audio.addEventListener('play', () => { armarAudio(); if(ctxA && ctxA.state === 'suspended') ctxA.resume(); });
+decks.forEach(d => d.addEventListener('play', () => { armarAudio(); if(ctxA && ctxA.state === 'suspended') ctxA.resume(); }));
+
+/* ---------- Modo DJ: mezcla entre canciones sin silencios ---------- */
+let djSeg = 0, mezclando = false, timerMezcla = null, proxima = null;
+function ponerDJ(seg, guardar = true){
+  djSeg = seg;
+  document.querySelectorAll('#djChips button').forEach(b => b.classList.toggle('on', +b.dataset.s === seg));
+  if(seg && actual >= 0 && lista[actual]){
+    const c = lista[actual];
+    prepararBordes(c).then(() => { if(lista[actual] === c && c.ini && audio.currentTime < c.ini) audio.currentTime = c.ini; });
+  }
+  if(!seg) proxima = null;
+  if(guardar) guardarEstado();
+}
+document.querySelectorAll('#djChips button').forEach(b => b.onclick = () => {
+  armarAudio(); if(ctxA && ctxA.state === 'suspended') ctxA.resume();
+  ponerDJ(+b.dataset.s);
+});
+// Busca dónde empieza a sonar de verdad (ini) y dónde se acaba (fin), sin silencio ni el final que se apaga
+async function decodificar(blob){ return await new OfflineAudioContext(1, 1, 44100).decodeAudioData(await blob.arrayBuffer()); }
+function ventanasRMS(buf, ms = 50){
+  const d = buf.getChannelData(0), d2 = buf.numberOfChannels > 1 ? buf.getChannelData(1) : null;
+  const paso = Math.floor(buf.sampleRate * ms / 1000), out = [];
+  for(let i = 0; i + paso <= d.length; i += paso){
+    let e = 0; for(let j = i; j < i + paso; j++){ const v = d2 ? (d[j] + d2[j]) / 2 : d[j]; e += v * v; }
+    out.push(Math.sqrt(e / paso));
+  }
+  return {rms: out, seg: ms / 1000};
+}
+const bordesEnCurso = new Map();
+function prepararBordes(c){
+  if(c.fin) return Promise.resolve();
+  if(bordesEnCurso.has(c)) return bordesEnCurso.get(c);
+  const pr = (async () => {
+    try{
+      const b = await archivoDe(c), dur = await duracionDe(b);
+      if(!dur || !isFinite(dur)) return;
+      const cortable = /mp3|mpeg|ogg|opus|wav|flac/i.test(b.type + ' ' + c.nombre) && dur > 60;
+      let cab, cola, colaDur;
+      if(cortable){
+        try{ cab = await decodificar(b.slice(0, Math.ceil(b.size * 15 / dur))); }catch(e){}
+        try{ cola = await decodificar(b.slice(Math.floor(b.size * (1 - 35 / dur)))); }catch(e){}
+      }
+      if(!cab || !cola){ const t = await decodificar(b); cab = cab || t; cola = cola || t; }
+      colaDur = cola.duration;
+      // inicio: primer momento con sonido real
+      const h = ventanasRMS(cab); let ini = 0;
+      for(let k = 0; k < h.rms.length; k++) if(h.rms[k] > 0.01){ ini = Math.max(0, k * h.seg - 0.05); break; }
+      // final: último momento con sonido fuerte (deja fuera el silencio y lo más bajo del final)
+      const t = ventanasRMS(cola), pico = Math.max(...t.rms);
+      const umbral = Math.max(0.01, pico * 0.06);
+      let ult = t.rms.length - 1; while(ult > 0 && t.rms[ult] < umbral) ult--;
+      let fin = dur - (colaDur - (ult + 1) * t.seg);
+      fin = Math.min(dur, Math.max(dur - 30, fin));
+      c.ini = Math.min(ini, 15); c.fin = Math.max(c.ini + 10, fin);
+      guardarCancion(c);
+    }catch(e){}
+    bordesEnCurso.delete(c);
+  })();
+  bordesEnCurso.set(c, pr);
+  return pr;
+}
+async function prepararSiguiente(){
+  const i = siguienteIndice(true);
+  if(i < 0){ proxima = null; return; }
+  const c = lista[i];
+  proxima = {i, c, listo: false};
+  await prepararBordes(c);
+  if(!proxima || proxima.c !== c) return;
+  try{
+    const b = await archivoDe(c), d = otroDeck();
+    if(mezclando) return;
+    ponerFuente(d, b); d.currentTime = 0;
+    await new Promise(ok => { if(d.readyState >= 1) ok(); else d.addEventListener('loadedmetadata', ok, {once:true}); });
+    d.currentTime = c.ini || 0;
+    proxima.listo = true;
+  }catch(e){}
+}
+function curva(desde, hasta){ // mezcla de "potencia igual": no baja el volumen a la mitad
+  const n = 64, a = new Float32Array(n);
+  for(let k = 0; k < n; k++){ const x = k / (n - 1); a[k] = desde < hasta ? Math.sin(x * Math.PI / 2) : Math.cos(x * Math.PI / 2); }
+  return a;
+}
+async function mezclarA(i, seg){
+  if(mezclando || i < 0 || !lista[i]) return;
+  armarAudio(); if(!ctxA){ cargar(i); return; }
+  const c = lista[i];
+  mezclando = true;
+  try{
+    if(!(proxima && proxima.c === c && proxima.listo)){
+      await prepararBordes(c);
+      const b = await archivoDe(c), d = otroDeck();
+      ponerFuente(d, b);
+      await new Promise(ok => { if(d.readyState >= 1) ok(); else d.addEventListener('loadedmetadata', ok, {once:true}); });
+      d.currentTime = c.ini || 0;
+    }
+  }catch(e){ mezclando = false; cargar(i); return; }
+  const viejo = audio, nuevo = otroDeck();
+  const kV = decks.indexOf(viejo), kN = decks.indexOf(nuevo), t = ctxA.currentTime + 0.05;
+  gDeck[kN].gain.cancelScheduledValues(0); gDeck[kN].gain.setValueAtTime(0, ctxA.currentTime);
+  gDeck[kV].gain.cancelScheduledValues(0); gDeck[kV].gain.setValueAtTime(gDeck[kV].gain.value, ctxA.currentTime);
+  nuevo.volume = viejo.volume;
+  try{ await nuevo.play(); }catch(e){}
+  gDeck[kN].gain.setValueCurveAtTime(curva(0, 1), t, seg);
+  gDeck[kV].gain.setValueCurveAtTime(curva(1, 0), t, seg);
+  // desde ya, la pantalla muestra la canción nueva
+  audio = nuevo; actual = i; proxima = null;
+  $('barra').max = nuevo.duration || 0; $('tTot').textContent = fmt(nuevo.duration);
+  mostrarActual(); pintarLista(); guardarEstado();
+  if(flotAbierto()) cargarLetra();
+  $('bPlay').textContent = '⏸';
+  timerMezcla = setTimeout(() => { viejo.pause(); mezclando = false; timerMezcla = null; }, seg * 1000 + 200);
+}
+function cancelarMezcla(){
+  if(timerMezcla){ clearTimeout(timerMezcla); timerMezcla = null; }
+  mezclando = false; proxima = null;
+  const o = otroDeck(); o.pause();
+  if(gDeck && ctxA){
+    const kA = decks.indexOf(audio), kO = decks.indexOf(o);
+    gDeck[kA].gain.cancelScheduledValues(0); gDeck[kA].gain.setValueAtTime(1, ctxA.currentTime);
+    gDeck[kO].gain.cancelScheduledValues(0); gDeck[kO].gain.setValueAtTime(0, ctxA.currentTime);
+  }
+}
+// Vigila cuándo empezar a mezclar
+enAudios('timeupdate', () => {
+  if(!djSeg || mezclando || actual < 0 || audio.paused) return;
+  const c = lista[actual]; if(!c) return;
+  const fin = c.fin || audio.duration; if(!fin || !isFinite(fin)) return;
+  const falta = fin - audio.currentTime;
+  if(falta < djSeg + 20 && !proxima) prepararSiguiente();
+  if(falta <= djSeg){
+    const i = proxima && lista[proxima.i] === proxima.c ? proxima.i : siguienteIndice(true);
+    if(i >= 0) mezclarA(i, Math.max(1, Math.min(djSeg, falta > 1 ? falta : djSeg)));
+  }
+});
+// Si el usuario cambia algo que afecta la siguiente canción, se vuelve a elegir
+ponerDJ(0, false);
+['bAleat','bRep'].forEach(id => $(id).addEventListener('click', () => { if(!mezclando) proxima = null; }));
 
 /* ---------- Reproducción ---------- */
 function fmt(s){ if(!isFinite(s)) return '0:00'; s = Math.floor(s); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
@@ -362,11 +518,13 @@ async function cargar(i, reproducir=true, desde=0){
     if(c.deCarpeta){ cargaPend = {i, desde}; pedirConexion(); }
     return;
   }
+  if(djSeg && !desde && !c.fin){ await Promise.race([prepararBordes(c), espera(1500)]); }
   if(actual !== i) return;
-  if(urlActual) URL.revokeObjectURL(urlActual);
-  urlActual = URL.createObjectURL(b);
-  audio.src = urlActual;
-  if(desde) audio.addEventListener('loadedmetadata', () => { audio.currentTime = desde; }, {once:true});
+  cancelarMezcla();
+  ponerFuente(audio, b);
+  if(!desde && djSeg && c.ini > 0.3) desde = c.ini;   // modo DJ: salta el silencio del inicio
+  if(desde){ const d = audio; d.addEventListener('loadedmetadata', () => { d.currentTime = desde; }, {once:true}); }
+  if(djSeg) prepararBordes(c);
   mostrarActual();
   if(flotAbierto()) cargarLetra();
   if(reproducir) audio.play().catch(()=>{});
@@ -377,28 +535,38 @@ function play(){
   if((actual < 0 || !audio.src) && v.length) return cargar(actual >= 0 && v.includes(actual) ? actual : v[0]);
   audio.paused ? audio.play().catch(()=>{}) : audio.pause();
 }
-function siguiente(auto=false){
-  const v = visibles(); if(!v.length) return;
-  if(aleatorio && v.length > 1){ let n; do{ n = v[Math.floor(Math.random()*v.length)]; }while(n === actual); return cargar(n); }
+function siguienteIndice(auto){
+  const v = visibles(); if(!v.length) return -1;
+  if(aleatorio && v.length > 1){ let n; do{ n = v[Math.floor(Math.random()*v.length)]; }while(n === actual); return n; }
   const p = v.indexOf(actual);
-  if(p >= 0 && p + 1 < v.length) return cargar(v[p + 1]);
-  if(p < 0) return cargar(v[0]);
-  if(repetir || !auto) return cargar(v[0]);
-  audio.pause();
+  if(p >= 0 && p + 1 < v.length) return v[p + 1];
+  if(p < 0) return v[0];
+  if(repetir || !auto) return v[0];
+  return -1;
+}
+function irA(i){
+  if(i < 0) return;
+  if(djSeg && ctxA && !audio.paused && audio.src) mezclarA(i, Math.min(3, djSeg)); // en modo DJ, cambiar a mano también mezcla
+  else cargar(i);
+}
+function siguiente(auto=false){
+  const n = proxima && proxima.i >= 0 && lista[proxima.i] === proxima.c ? proxima.i : siguienteIndice(auto);
+  if(n < 0){ audio.pause(); return; }
+  if(auto) cargar(n); else irA(n);
 }
 function anterior(){
   const v = visibles(); if(!v.length) return;
   if(audio.currentTime > 3){ audio.currentTime = 0; return; }
   const p = v.indexOf(actual);
-  cargar(p > 0 ? v[p - 1] : v[v.length - 1]);
+  irA(p > 0 ? v[p - 1] : v[v.length - 1]);
 }
 
-audio.addEventListener('play', () => { $('bPlay').textContent = '⏸'; $('disco').classList.add('gira'); });
-audio.addEventListener('pause', () => { $('bPlay').textContent = '▶'; $('disco').classList.remove('gira'); guardarEstado(); });
-audio.addEventListener('ended', () => siguiente(true));
-audio.addEventListener('loadedmetadata', () => { $('barra').max = audio.duration || 0; $('tTot').textContent = fmt(audio.duration); });
+enAudios('play', () => { $('bPlay').textContent = '⏸'; $('disco').classList.add('gira'); });
+enAudios('pause', () => { $('bPlay').textContent = '▶'; $('disco').classList.remove('gira'); guardarEstado(); });
+enAudios('ended', () => siguiente(true));
+enAudios('loadedmetadata', () => { $('barra').max = audio.duration || 0; $('tTot').textContent = fmt(audio.duration); });
 let ultimoGuardado = 0;
-audio.addEventListener('timeupdate', () => {
+enAudios('timeupdate', () => {
   if(!arrastrando) $('barra').value = audio.currentTime;
   $('tAct').textContent = fmt(audio.currentTime);
   if(Date.now() - ultimoGuardado > 5000){ ultimoGuardado = Date.now(); guardarEstado(); }
@@ -406,7 +574,7 @@ audio.addEventListener('timeupdate', () => {
 let arrastrando = false;
 $('barra').addEventListener('input', () => { arrastrando = true; $('tAct').textContent = fmt($('barra').value); });
 $('barra').addEventListener('change', () => { audio.currentTime = $('barra').value; arrastrando = false; });
-$('vol').addEventListener('input', e => { audio.volume = e.target.value; guardarEstado(); });
+$('vol').addEventListener('input', e => { decks.forEach(d => d.volume = e.target.value); guardarEstado(); });
 
 $('bPlay').onclick = play;
 $('bSig').onclick = () => siguiente(false);
@@ -482,7 +650,7 @@ function pintarLista(){
     if(detalle(c)){ const sm = document.createElement('small'); sm.textContent = detalle(c); s.append(sm); }
     const extra = [c.genero, c.bpm ? `🥁 ${categoriaRitmo(c.bpm)} (${c.bpm})` : ''].filter(Boolean).join(' · ');
     if(extra){ const sm = document.createElement('small'); sm.textContent = extra; s.append(sm); }
-    s.onclick = () => cargar(i);
+    s.onclick = () => irA(i);
     li.append(s);
     if(!filtrado){ const up = document.createElement('button'); up.textContent = '▲'; up.onclick = () => mover(i, -1); li.append(up); }
     const del = document.createElement('button'); del.textContent = '✕';
@@ -503,7 +671,7 @@ function quitar(i){
   const c = lista[i]; borrarCancion(c.id);
   const eraActual = i === actual;
   lista.splice(i, 1);
-  if(eraActual){ audio.pause(); audio.removeAttribute('src'); actual = -1; quitarPortada(); $('titulo').textContent = 'Sin canción'; $('sub').textContent = ''; }
+  if(eraActual){ cancelarMezcla(); audio.pause(); audio.removeAttribute('src'); actual = -1; quitarPortada(); $('titulo').textContent = 'Sin canción'; $('sub').textContent = ''; }
   else if(i < actual) actual--;
   pintarLista(); guardarEstado();
 }
@@ -525,7 +693,7 @@ $('archivos').addEventListener('change', e => {
 $('bLimpiar').onclick = () => {
   if(!lista.length || !confirm('¿Vaciar toda la lista? Se quitarán todas las canciones de la app.')) return;
   lista.forEach(c => borrarCancion(c.id));
-  lista = []; actual = -1; audio.pause(); audio.removeAttribute('src'); quitarPortada();
+  lista = []; actual = -1; cancelarMezcla(); audio.pause(); audio.removeAttribute('src'); quitarPortada();
   $('titulo').textContent = 'Sin canción'; $('sub').textContent = 'Agrega canciones para empezar';
   pintarLista(); guardarEstado();
 };
@@ -916,8 +1084,8 @@ function marcarLinea(){
   lineaAct = i;
   if(i >= 0){ const el = lineas[i].el; el.classList.add('act'); flotTxt.scrollTop = el.offsetTop - flotTxt.clientHeight / 3; }
 }
-audio.addEventListener('timeupdate', marcarLinea);
-audio.addEventListener('seeked', () => { lineaAct = -2; marcarLinea(); });
+enAudios('timeupdate', marcarLinea);
+enAudios('seeked', () => { lineaAct = -2; marcarLinea(); });
 
 async function pedirLRCLIB(params){
   const r = await fetch('https://lrclib.net/api/' + params);
