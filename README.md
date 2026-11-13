@@ -6,6 +6,8 @@ Reproductor de música sencillo en una sola página HTML.
 - Modos aleatorio y repetir
 - Lista de canciones (ordenar y quitar)
 - Lee etiquetas de los archivos: título, artista, álbum y portada (si no tiene, usa el nombre del archivo)
+- Reconoce canciones sin etiqueta por el sonido (AcoustID + MusicBrainz, portada de Cover Art Archive). Necesita una clave gratis de acoustid.org
+- Letra en ventana flotante que se puede mover, sincronizada con la canción cuando hay (lrclib.net)
 - Controles desde la pantalla de bloqueo del celular
 - Recuerda canciones, posición y volumen al cerrar
-- **Respaldo en archivo** (💾 Guardar / 📂 Cargar): lista, orden, posición, volumen y modos
+- **Respaldo en archivo** (💾 Guardar / 📂 Cargar): lista, orden, posición, volumen, modos, etiquetas, letras y clave

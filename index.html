@@ -37,6 +37,20 @@
   .vacio{color:var(--mut);text-align:center;padding:14px}
   .nota{font-size:13px;color:var(--mut);margin-top:10px;line-height:1.4}
   input[type=file]{display:none}
+  input[type=text]{width:100%;padding:12px;border-radius:12px;border:1px solid #33406e;background:#0f1220;color:var(--txt);font-size:16px;margin-top:8px}
+  a{color:var(--acc)}
+  #estadoRec{font-size:14px;color:var(--mut);margin-top:10px;min-height:18px}
+  #flot{position:fixed;left:12px;top:90px;width:min(92vw,420px);height:46vh;background:rgba(20,24,44,.94);
+    border:1px solid #33406e;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;flex-direction:column;z-index:50;backdrop-filter:blur(6px)}
+  #flot.ver{display:flex}
+  #flotCab{display:flex;align-items:center;gap:6px;padding:8px 10px;cursor:move;touch-action:none;border-bottom:1px solid #33406e;font-size:15px;color:var(--mut)}
+  #flotCab span{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  #flotCab button{padding:6px 10px;font-size:15px}
+  #flotTxt{flex:1;min-height:0;overflow-y:auto;padding:14px 16px 40vh;line-height:1.5;scroll-behavior:smooth}
+  #flotTxt p{margin:0 0 10px;color:var(--mut);transition:color .2s,transform .2s}
+  #flotTxt p.act{color:var(--txt);font-weight:700;transform:scale(1.03);transform-origin:left}
+  #flotTxt.plano p{color:var(--txt)}
+  #flotPie{font-size:11px;color:var(--mut);padding:4px 10px;border-top:1px solid #33406e}
 </style>
 </head>
 <body>
@@ -57,6 +71,11 @@
       <button id="bRep" title="Repetir">🔁</button>
     </div>
     <div class="vol">🔈<input id="vol" type="range" min="0" max="1" step="0.01" value="1">🔊</div>
+    <div class="fila" style="margin-top:10px">
+      <button id="bLetra">🎤 Letra</button>
+      <button id="bRec">🔍 Reconocer sin etiqueta</button>
+    </div>
+    <div id="estadoRec"></div>
   </div>
 
   <div class="card">
@@ -72,6 +91,13 @@
   </div>
 
   <div class="card">
+    <b>Clave de reconocimiento (AcoustID)</b>
+    <div class="nota">Es gratis. Entra a <a href="https://acoustid.org/new-application" target="_blank" rel="noopener">acoustid.org/new-application</a>,
+      inicia sesión, crea una aplicación (nombre: Reproductor JAT) y pega aquí la "API key" que te da.</div>
+    <input id="clave" type="text" placeholder="Pega aquí tu clave" autocomplete="off">
+  </div>
+
+  <div class="card">
     <div class="fila">
       <button id="bResp">💾 Guardar respaldo</button>
       <button onclick="document.getElementById('fResp').click()">📂 Cargar respaldo</button>
@@ -84,6 +110,12 @@
   </div>
 </div>
 
+<div id="flot">
+  <div id="flotCab"><span id="flotTit">Letra</span>
+    <button id="fMenos">A−</button><button id="fMas">A+</button><button id="fCerrar">✕</button></div>
+  <div id="flotTxt"></div>
+  <div id="flotPie">Letras: lrclib.net</div>
+</div>
 <script src="jsmediatags.min.js"></script>
 <audio id="audio" preload="metadata"></audio>
 
@@ -115,7 +147,8 @@ function leerTodas(){
 function estado(){
   return { app:'Reproductor de Música JAT', version:1, fecha:new Date().toISOString(),
     orden: lista.map(c => c.nombre),
-    etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album).map(c => [c.nombre, {titulo:c.titulo||'', artista:c.artista||'', album:c.album||''}])), actual: lista[actual]?.nombre || null,
+    etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra).map(c => [c.nombre, {titulo:c.titulo||'', artista:c.artista||'', album:c.album||'', letra:c.letra||'', letraSync:c.letraSync||''}])),
+    clave: claveGuardada(), actual: lista[actual]?.nombre || null,
     posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir };
 }
 function guardarEstado(){ try{ localStorage.setItem('reproductorJAT_estado', JSON.stringify(estado())); }catch(e){} }
@@ -129,6 +162,13 @@ function aplicarEstado(e, conPos){
   }
   if(typeof e.volumen === 'number'){ audio.volume = e.volumen; $('vol').value = e.volumen; }
   aleatorio = !!e.aleatorio; repetir = !!e.repetir; pintarModos();
+  if(e.etiquetas) lista.forEach(c => {
+    const t = e.etiquetas[c.nombre]; if(!t) return;
+    let cambio = false;
+    for(const k of ['titulo','artista','album','letra','letraSync']) if(t[k] && !c[k]){ c[k] = t[k]; cambio = true; }
+    if(cambio) guardarCancion(c);
+  });
+  if(e.clave && !claveGuardada()) guardarClave(e.clave);
   const i = lista.findIndex(c => c.nombre === e.actual);
   if(i >= 0){ cargar(i, false, conPos ? e.posicion : 0); }
   pintarLista();
@@ -193,6 +233,7 @@ function cargar(i, reproducir=true, desde=0){
   audio.src = urlActual;
   if(desde) audio.addEventListener('loadedmetadata', () => { audio.currentTime = desde; }, {once:true});
   mostrarActual();
+  if(flotAbierto()) cargarLetra();
   if(reproducir) audio.play().catch(()=>{});
   pintarLista(); guardarEstado();
 }
@@ -319,11 +360,227 @@ $('fResp').addEventListener('change', async e => {
   }catch(err){ alert('Ese archivo no es un respaldo válido del reproductor.'); }
 });
 
+/* ---------- Clave AcoustID ---------- */
+function claveGuardada(){ try{ return localStorage.getItem('reproductorJAT_clave') || ''; }catch(e){ return ''; } }
+function guardarClave(k){ try{ localStorage.setItem('reproductorJAT_clave', k.trim()); }catch(e){} $('clave').value = k.trim(); }
+$('clave').addEventListener('change', e => { guardarClave(e.target.value); guardarEstado(); });
+
+/* ---------- Reconocer canciones por el sonido ---------- */
+const espera = ms => new Promise(r => setTimeout(r, ms));
+function duracionDe(blob){
+  return new Promise(ok => {
+    const a = new Audio(); const u = URL.createObjectURL(blob);
+    const fin = d => { URL.revokeObjectURL(u); ok(d); };
+    a.preload = 'metadata';
+    a.onloadedmetadata = () => fin(a.duration);
+    a.onerror = () => fin(0);
+    a.src = u;
+  });
+}
+let modHuella = null;
+async function huella(blob, dur){
+  if(!modHuella) modHuella = await import('./chromaprint/index.js');
+  const intentar = async b => { for await (const fp of modHuella.processAudioFile(await b.arrayBuffer())) return fp; };
+  // Solo hace falta el inicio (≈2 min): se corta el archivo para ahorrar memoria del celular
+  if(dur > 140 && /mpeg|mp3|ogg|wav|flac/i.test(blob.type + ' ' + (blob.name||''))){
+    try{ return await intentar(blob.slice(0, Math.ceil(blob.size * 135 / dur))); }catch(e){}
+  }
+  return await intentar(blob);
+}
+let nJsonp = 0;
+function acoustid(clave, fp, dur){
+  return new Promise((ok, mal) => {
+    const cb = 'acid_cb_' + (++nJsonp);
+    const sc = document.createElement('script');
+    const t = setTimeout(() => { limpiar(); mal(new Error('Sin respuesta del servicio')); }, 25000);
+    function limpiar(){ clearTimeout(t); delete window[cb]; sc.remove(); }
+    window[cb] = d => { limpiar(); ok(d); };
+    sc.onerror = () => { limpiar(); mal(new Error('No se pudo conectar')); };
+    sc.src = 'https://api.acoustid.org/v2/lookup?format=jsonp&jsoncallback=' + cb +
+      '&client=' + encodeURIComponent(clave) + '&meta=recordings+releasegroups+compress' +
+      '&duration=' + Math.round(dur) + '&fingerprint=' + encodeURIComponent(fp);
+    document.head.append(sc);
+  });
+}
+function mejorResultado(d){
+  const res = (d.results || []).filter(r => r.score >= 0.5 && r.recordings && r.recordings.some(x => x.title))
+    .sort((a,b) => b.score - a.score);
+  if(!res.length) return null;
+  const rec = res[0].recordings.find(x => x.title);
+  const grupos = rec.releasegroups || [];
+  const rg = grupos.find(g => g.type === 'Album' && !(g.secondarytypes||[]).length) || grupos.find(g => g.type === 'Album') || grupos[0];
+  return { titulo: rec.title, artista: (rec.artists||[]).map(a => a.name + (a.joinphrase||'')).join('').trim() || (rec.artists||[]).map(a=>a.name).join(', '),
+    album: rg ? rg.title : '', rgid: rg ? rg.id : '' };
+}
+async function bajarPortada(rgid){
+  if(!rgid) return null;
+  try{
+    const r = await fetch('https://coverartarchive.org/release-group/' + rgid + '/front-500');
+    if(!r.ok) return null;
+    const b = await r.blob(); return b.size ? b : null;
+  }catch(e){ return null; }
+}
+let reconociendo = false;
+async function reconocerTodas(){
+  if(reconociendo) return;
+  const clave = claveGuardada();
+  if(!clave){ $('estadoRec').textContent = '⚠ Primero pega tu clave de AcoustID (más abajo).'; $('clave').focus(); return; }
+  const pend = lista.filter(c => !c.titulo);
+  if(!pend.length){ $('estadoRec').textContent = '✔ Todas las canciones ya tienen título.'; return; }
+  reconociendo = true; $('bRec').disabled = true;
+  let ok = 0, no = 0;
+  for(let i = 0; i < pend.length; i++){
+    const c = pend[i];
+    $('estadoRec').textContent = `🔍 Escuchando ${i+1} de ${pend.length}: ${titulo(c)}…`;
+    try{
+      const dur = await duracionDe(c.blob);
+      const fp = await huella(c.blob, dur);
+      const d = await acoustid(clave, fp, dur);
+      if(d.status !== 'ok'){
+        const msg = (d.error && d.error.message) || 'error';
+        if(/api key/i.test(msg)){ $('estadoRec').textContent = '⚠ La clave no es válida. Revisa que copiaste la "API key" de tu aplicación.'; break; }
+        throw new Error(msg);
+      }
+      const m = mejorResultado(d);
+      if(m){
+        c.titulo = m.titulo; c.artista = m.artista; c.album = m.album;
+        if(!c.portada){ const p = await bajarPortada(m.rgid); if(p) c.portada = p; }
+        c.letra = ''; c.letraSync = ''; c.letraNo = false;
+        guardarCancion(c); ok++;
+        pintarLista(); if(lista[actual] === c){ mostrarActual(); if(flotAbierto()) cargarLetra(); }
+      } else no++;
+    }catch(e){ no++; }
+    await espera(400); // el servicio pide máximo 3 consultas por segundo
+  }
+  guardarEstado();
+  if(!/⚠/.test($('estadoRec').textContent)) $('estadoRec').textContent = `✔ Reconocidas: ${ok}. No encontradas: ${no}.`;
+  reconociendo = false; $('bRec').disabled = false;
+}
+$('bRec').onclick = reconocerTodas;
+
+/* ---------- Letra flotante ---------- */
+let lineas = [], lineaAct = -1, tamLetra = 20;
+try{ tamLetra = +localStorage.getItem('reproductorJAT_tamLetra') || 20; }catch(e){}
+const flot = $('flot'), flotTxt = $('flotTxt');
+flotTxt.style.fontSize = tamLetra + 'px';
+function flotAbierto(){ return flot.classList.contains('ver'); }
+$('bLetra').onclick = () => {
+  if(flotAbierto()){ flot.classList.remove('ver'); return; }
+  flot.classList.add('ver'); acomodarFlot(); cargarLetra();
+};
+$('fCerrar').onclick = () => flot.classList.remove('ver');
+$('fMas').onclick = () => cambiarTam(2);
+$('fMenos').onclick = () => cambiarTam(-2);
+function cambiarTam(d){ tamLetra = Math.max(14, Math.min(40, tamLetra + d)); flotTxt.style.fontSize = tamLetra + 'px'; try{ localStorage.setItem('reproductorJAT_tamLetra', tamLetra); }catch(e){} }
+
+// Arrastrar la ventana
+(() => {
+  let dx = 0, dy = 0, mov = false;
+  $('flotCab').addEventListener('pointerdown', e => {
+    if(e.target.tagName === 'BUTTON') return;
+    mov = true; const r = flot.getBoundingClientRect(); dx = e.clientX - r.left; dy = e.clientY - r.top;
+    $('flotCab').setPointerCapture(e.pointerId);
+  });
+  $('flotCab').addEventListener('pointermove', e => {
+    if(!mov) return;
+    flot.style.left = (e.clientX - dx) + 'px'; flot.style.top = (e.clientY - dy) + 'px'; acomodarFlot();
+  });
+  $('flotCab').addEventListener('pointerup', () => {
+    if(!mov) return; mov = false;
+    try{ localStorage.setItem('reproductorJAT_flot', JSON.stringify({l: flot.style.left, t: flot.style.top})); }catch(e){}
+  });
+  try{ const p = JSON.parse(localStorage.getItem('reproductorJAT_flot')); if(p){ flot.style.left = p.l; flot.style.top = p.t; } }catch(e){}
+})();
+function acomodarFlot(){
+  const r = flot.getBoundingClientRect();
+  const l = Math.max(0, Math.min(innerWidth - r.width, r.left)), t = Math.max(0, Math.min(innerHeight - 60, r.top));
+  flot.style.left = l + 'px'; flot.style.top = t + 'px';
+}
+addEventListener('resize', () => { if(flotAbierto()) acomodarFlot(); });
+
+function textoFlot(msg){ flotTxt.className = 'plano'; flotTxt.innerHTML = ''; const p = document.createElement('p'); p.textContent = msg; flotTxt.append(p); lineas = []; }
+function parsearLRC(t){
+  const out = [];
+  t.split(/\r?\n/).forEach(l => {
+    const tiempos = [...l.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)];
+    const txt = l.replace(/\[[^\]]*\]/g, '').trim();
+    tiempos.forEach(m => out.push({ t: (+m[1]) * 60 + (+m[2]), txt: txt || '♪' }));
+  });
+  return out.sort((a,b) => a.t - b.t);
+}
+function pintarLetra(c){
+  flotTxt.innerHTML = ''; lineaAct = -1;
+  if(c.letraSync){
+    lineas = parsearLRC(c.letraSync); flotTxt.className = '';
+    lineas.forEach((l, i) => { const p = document.createElement('p'); p.textContent = l.txt; p.onclick = () => { audio.currentTime = l.t; }; flotTxt.append(p); l.el = p; });
+    marcarLinea();
+  } else if(c.letra){
+    lineas = []; flotTxt.className = 'plano';
+    c.letra.split(/\r?\n/).forEach(l => { const p = document.createElement('p'); p.textContent = l || ' '; flotTxt.append(p); });
+    flotTxt.scrollTop = 0;
+  }
+}
+function marcarLinea(){
+  if(!lineas.length || !flotAbierto()) return;
+  const t = audio.currentTime + 0.3;
+  let i = -1; for(let k = 0; k < lineas.length; k++){ if(lineas[k].t <= t) i = k; else break; }
+  if(i === lineaAct) return;
+  if(lineaAct >= 0 && lineas[lineaAct]) lineas[lineaAct].el.classList.remove('act');
+  lineaAct = i;
+  if(i >= 0){ const el = lineas[i].el; el.classList.add('act'); flotTxt.scrollTop = el.offsetTop - flotTxt.clientHeight / 3; }
+}
+audio.addEventListener('timeupdate', marcarLinea);
+audio.addEventListener('seeked', () => { lineaAct = -2; marcarLinea(); });
+
+async function pedirLRCLIB(params){
+  const r = await fetch('https://lrclib.net/api/' + params);
+  if(r.status === 404) return null;
+  if(!r.ok) throw new Error('lrclib ' + r.status);
+  return r.json();
+}
+let pidiendoPara = null;
+async function cargarLetra(){
+  const c = lista[actual];
+  $('flotTit').textContent = c ? titulo(c) + (c.artista ? ' — ' + c.artista : '') : 'Letra';
+  if(!c){ textoFlot('No hay canción sonando.'); return; }
+  if(c.letra || c.letraSync){ pintarLetra(c); return; }
+  if(c.letraNo){ textoFlot('No se encontró la letra de esta canción.'); return; }
+  if(!c.titulo && !c.artista){ /* sin etiquetas: busca por el nombre del archivo */ }
+  textoFlot('Buscando letra…'); pidiendoPara = c;
+  try{
+    const dur = Math.round(audio.duration || await duracionDe(c.blob) || 0);
+    let d = null;
+    if(c.titulo && c.artista){
+      const q = new URLSearchParams({track_name: c.titulo, artist_name: c.artista});
+      if(c.album) q.set('album_name', c.album);
+      if(dur) q.set('duration', dur);
+      d = await pedirLRCLIB('get?' + q);
+    }
+    if(!d || (!d.syncedLyrics && !d.plainLyrics)){
+      const q = c.titulo ? new URLSearchParams(c.artista ? {track_name: c.titulo, artist_name: c.artista} : {q: c.titulo})
+                         : new URLSearchParams({q: limpiarNombre(c.nombre)});
+      const lista2 = (await pedirLRCLIB('search?' + q)) || [];
+      const con = lista2.filter(x => x.syncedLyrics || x.plainLyrics);
+      if(dur) con.sort((a,b) => Math.abs((a.duration||0) - dur) - Math.abs((b.duration||0) - dur));
+      d = con.find(x => x.syncedLyrics && (!dur || Math.abs(x.duration - dur) <= 5)) || con[0] || null;
+    }
+    if(d && d.instrumental){ c.letra = '🎵 (Instrumental)'; }
+    else if(d){ c.letraSync = d.syncedLyrics || ''; c.letra = d.plainLyrics || ''; }
+    else c.letraNo = true;
+    guardarCancion(c);
+    if(pidiendoPara !== c || lista[actual] !== c) return;
+    if(c.letraNo) textoFlot('No se encontró la letra de esta canción.'); else pintarLetra(c);
+  }catch(e){
+    if(lista[actual] === c) textoFlot('No se pudo buscar la letra (¿sin internet?). Toca 🎤 otra vez para reintentar.');
+  }
+}
+
 /* ---------- Inicio ---------- */
 (async () => {
   try{ await abrirDB(); lista = await leerTodas(); }catch(e){ lista = []; }
   const e = leerEstado();
   if(e){ respaldoPend = e; aplicarEstado(e, true); }
+  $('clave').value = claveGuardada();
   pintarLista();
   leerPendientes();
 })();
