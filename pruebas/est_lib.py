@@ -4,7 +4,7 @@ HOOK = """
 (() => {
   const oc = AudioNode.prototype.connect;
   AudioNode.prototype.connect = function(d, ...a){
-    if(d === this.context.destination){
+    if(d === this.context.destination && !(this.context instanceof OfflineAudioContext)){
       if(!this.context.__sp){
         const sp = this.context.__sp = this.context.createChannelSplitter(2);
         window.aL = this.context.createAnalyser(); window.aR = this.context.createAnalyser();

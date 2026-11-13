@@ -60,9 +60,9 @@ with sync_playwright() as p:
         pg.wait_for_timeout(1500); m = med(pg); ok(m['ancho'] > 0.5, 'T4 el efecto sigue tras llegar canciones', m['ancho'])
         # T3 DJ
         pg.click('#djChips button[data-s="4"]'); pg.wait_for_timeout(500)
-        pg.click('#bSig'); pg.wait_for_timeout(7000); m = med(pg)
+        pg.click('#bSig'); pg.wait_for_function('!mezclando', timeout=60000); pg.wait_for_timeout(3000); m = med(pg)
         ok(m['ancho'] > 0.55 and m['corr'] > 0.05 and pg.evaluate('!audio.paused'), 'T3 el efecto sigue después de una mezcla DJ', (pg.inner_text('#titulo'), m['ancho'], m['corr']))
-        pg.click('#bSig'); pg.wait_for_timeout(7000); m = med(pg)
+        pg.click('#bSig'); pg.wait_for_function('!mezclando', timeout=60000); pg.wait_for_timeout(3000); m = med(pg)
         ok(pg.evaluate('!audio.paused') and m['nivel'] > 0.02 and m['ancho'] > 0.5, 'T3 segunda mezcla DJ (a canción mono): suena y con estéreo', (pg.inner_text('#titulo'), m['ancho']))
         ok(not pg.errs, 'sin errores', pg.errs); b.close()
 
