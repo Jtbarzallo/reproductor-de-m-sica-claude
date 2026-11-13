@@ -279,7 +279,7 @@ const PRESETS = {
   mono:   {ancho: 1.2, tope: 0.95, falso: 0.9, falsoMono: 1.3,  salida: 0.85},
 };
 const COMP_LIM = 0.877;   // el limitador sube solo ~1,1 dB; esto lo devuelve a su sitio
-let modoEst = 'normal', ctxA = null, audioRoto = '', gDeck = null;
+let modoEst = 'normal', ctxA = null, audioRoto = '', gDeck = null, gBajo = null;
 let nAncho = null, nFalso = null, nNivel = null, gSeco = null, gEfecto = null, gMusica = null, nFin = null, anL = null, anR = null, anM = null, anS = null;
 let ctxBase = null, qLados = null;   // qLados: qué tan abierta es la canción que suena (0 = mono)
 function armarAudio(){
@@ -339,8 +339,14 @@ function armarAudio(){
     spM.connect(anL, 0); spM.connect(anR, 1);
     // Dos "platos" (como un DJ): cada uno con su volumen para mezclar
     const gd = [];
-    decks.forEach(d => { const f = c.createMediaElementSource(d); fuentes.push(f); const gn = g(d === audio ? 1 : 0); f.connect(gn); gn.connect(entrada); gd.push(gn); });
-    gDeck = gd; ctxA = c;
+    const gb = [];
+    decks.forEach(d => {
+      const f = c.createMediaElementSource(d); fuentes.push(f);
+      // "perilla de bajos" de cada plato: el DJ cambia los bajos de una canción a la otra
+      const bajo = c.createBiquadFilter(); bajo.type = 'lowshelf'; bajo.frequency.value = 180; bajo.gain.value = 0;
+      const gn = g(d === audio ? 1 : 0); f.connect(bajo); bajo.connect(gn); gn.connect(entrada); gd.push(gn); gb.push(bajo);
+    });
+    gDeck = gd; gBajo = gb; ctxA = c;
     c.onstatechange = () => { if(c.state !== 'running' && !audio.paused) c.resume().catch(() => {}); };
     aplicarEstereo(true);
   }catch(e){
@@ -348,7 +354,7 @@ function armarAudio(){
     anL = anR = anM = anS = null;
     // que nunca se quede sin sonido: lo ya conectado va directo a la salida
     try{ fuentes.forEach(f => { try{ f.disconnect(); }catch(_){} f.connect(c.destination); }); }catch(_){}
-    ctxA = null; gDeck = null;
+    ctxA = null; gDeck = null; gBajo = null;
     pintarEstadoEstereo();
   }
 }
@@ -450,8 +456,17 @@ $('bProbar').onclick = async () => {
 };
 ponerEstereo('normal', false);
 
-/* ---------- Modo DJ: mezcla entre canciones sin silencios ---------- */
-let djSeg = 0, mezclando = false, timerMezcla = null, proxima = null;
+/* ---------- Modo DJ: mezcla como un DJ (une los golpes de las dos canciones) ----------
+   1) Cada canción se analiza: dónde empieza a sonar (ini), dónde empieza a apagarse sola (sal),
+      dónde caen sus golpes (rejilla de pulsos) y qué tan fuerte suena.
+   2) La mezcla termina ANTES de que la canción baje sola, así no se nota el bajón de volumen.
+   3) Si las dos tienen golpe marcado y velocidad parecida, la nueva se acelera o frena un poco
+      (sin cambiar el tono) para ir al mismo ritmo, y entra justo en un golpe.
+   4) En vez de bajar una y subir la otra, se pasan los bajos de una a la otra (como un DJ),
+      y después la nueva vuelve sola a su velocidad normal sin que se note. */
+let djSeg = 0, mezclando = false, timerMezcla = null, proxima = null, rampaVel = null;
+const DJV = 2;                 // versión del análisis (si cambia, se vuelven a analizar las canciones)
+const BAJO_FUERA = -26;        // dB: bajos "apagados" del plato que no lleva el golpe
 function ponerDJ(seg, guardar = true){
   djSeg = seg;
   document.querySelectorAll('#djChips button').forEach(b => b.classList.toggle('on', +b.dataset.s === seg));
@@ -466,7 +481,6 @@ document.querySelectorAll('#djChips button').forEach(b => b.onclick = () => {
   armarAudio(); if(ctxA && ctxA.state === 'suspended') ctxA.resume();
   ponerDJ(+b.dataset.s);
 });
-// Busca dónde empieza a sonar de verdad (ini) y dónde se acaba (fin), sin silencio ni el final que se apaga
 async function decodificar(blob){ return await new OfflineAudioContext(1, 1, 44100).decodeAudioData(await blob.arrayBuffer()); }
 function ventanasRMS(buf, ms = 50){
   const d = buf.getChannelData(0), d2 = buf.numberOfChannels > 1 ? buf.getChannelData(1) : null;
@@ -477,32 +491,113 @@ function ventanasRMS(buf, ms = 50){
   }
   return {rms: out, seg: ms / 1000};
 }
+function suavizar(a, n){ const o = []; let t = 0; for(let i = 0; i < a.length; i++){ t += a[i]; if(i >= n) t -= a[i - n]; o.push(t / Math.min(i + 1, n)); } return o; }
+function percentil(a, q){ if(!a.length) return 0; const s = [...a].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(q * s.length))]; }
+
+// Rejilla de golpes de un tramo: periodo exacto (segundos por golpe) y dónde cae un golpe.
+// desde/hasta en segundos dentro del buffer; offset = segundo de la canción donde empieza el buffer.
+async function rejilla(buf, desde, hasta, offset, pista){
+  desde = Math.max(0, desde); hasta = Math.min(buf.duration, hasta);
+  if(hasta - desde < 6) return null;
+  const sr = buf.sampleRate, largo = Math.floor((hasta - desde) * sr);
+  const off = new OfflineAudioContext(1, largo, sr);
+  const src = off.createBufferSource(); src.buffer = buf;
+  const lp = off.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 150; lp.Q.value = 1;
+  src.connect(lp); lp.connect(off.destination); src.start(0, desde, hasta - desde);
+  const d = (await off.startRendering()).getChannelData(0);
+  const paso = Math.max(1, Math.round(sr * 0.005)), MS = paso / sr, env = [];
+  for(let i = 0; i + paso <= d.length; i += paso){ let e = 0; for(let j = i; j < i + paso; j++) e += d[j] * d[j]; env.push(e); }
+  const sua = suavizar(env, 4);
+  const on = sua.map((e, i) => i ? Math.max(0, e - sua[i - 1]) : 0);
+  const N = on.length;
+  // 1) velocidad aproximada: autocorrelación entre 70 y 180 golpes por minuto
+  const lMin = Math.round(60 / 180 / MS), lMax = Math.round(60 / 70 / MS);
+  const ac = new Float64Array(lMax + 2);
+  for(let lag = lMin - 1; lag <= lMax + 1; lag++){ let t = 0; for(let i = lag; i < N; i++) t += on[i] * on[i - lag]; ac[lag] = t; }
+  let mejor = -1, lag0 = 0;
+  for(let lag = lMin; lag <= lMax; lag++){
+    const bpm = 60 / (lag * MS);
+    let w = 1 + 0.15 * Math.exp(-Math.pow((bpm - 115) / 40, 2));
+    if(pista){ const r = bpm / pista; if(Math.abs(r - 1) < 0.04 || Math.abs(r - 2) < 0.08 || Math.abs(r - 0.5) < 0.02) w *= 1.25; }
+    const v = ac[lag] * w; if(v > mejor){ mejor = v; lag0 = lag; }
+  }
+  if(!lag0) return null;
+  // 2) periodo y fase exactos: peine de golpes que mejor encaja (±1,2 % alrededor)
+  const val = x => { const i = Math.round(x); return Math.max(on[i - 1] || 0, on[i] || 0, on[i + 1] || 0); };
+  let mejorP = lag0, mejorF = 0, mejorS = -1;
+  for(let P = lag0 * 0.988; P <= lag0 * 1.012; P += 0.05){
+    for(let f = 0; f < P; f += 1){
+      let t = 0; for(let x = f; x < N; x += P) t += val(x);
+      if(t > mejorS){ mejorS = t; mejorP = P; mejorF = f; }
+    }
+  }
+  // 3) ajuste fino: se ubica cada golpe real cerca de la rejilla y se traza la mejor recta (periodo exacto)
+  {
+    let sw = 0, sk = 0, st = 0, skk = 0, skt = 0, k = 0;
+    for(let x = mejorF; x < N; x += mejorP, k++){
+      const c0 = Math.round(x); let pk = c0, pv = -1;
+      for(let j = c0 - 4; j <= c0 + 4; j++) if(j > 0 && j < N - 1 && on[j] > pv){ pv = on[j]; pk = j; }
+      if(pv <= 0) continue;
+      const a = on[pk - 1], b = on[pk], c = on[pk + 1], den = a - 2 * b + c;
+      const fino = pk + (den ? Math.max(-0.5, Math.min(0.5, 0.5 * (a - c) / den)) : 0);
+      const w = pv; sw += w; sk += w * k; st += w * fino; skk += w * k * k; skt += w * k * fino;
+    }
+    const den = sw * skk - sk * sk;
+    if(sw && den > 0){
+      const P2 = (sw * skt - sk * st) / den, F2 = (st - P2 * sk) / sw;
+      if(Math.abs(P2 / mejorP - 1) < 0.01){ mejorP = P2; mejorF = ((F2 % P2) + P2) % P2; }
+    }
+  }
+  // fuerza: qué tanto destaca la fase correcta frente a las demás (golpe claro = fácil de unir)
+  let suma = 0, cnt = 0;
+  for(let f = 0; f < mejorP; f += 2){ let t = 0; for(let x = f; x < N; x += mejorP) t += val(x); suma += t; cnt++; }
+  const fz = cnt && suma ? mejorS / (suma / cnt) : 0;
+  return {p: mejorP * MS, f: offset + desde + mejorF * MS, fz: +fz.toFixed(2)};
+}
+
+// Analiza una canción para mezclarla: ini, fin, sal (antes de que baje sola), golpes y nivel
 const bordesEnCurso = new Map();
 function prepararBordes(c){
-  if(c.fin) return Promise.resolve();
+  if(c.fin && c.djv === DJV) return Promise.resolve();
   if(bordesEnCurso.has(c)) return bordesEnCurso.get(c);
   const pr = (async () => {
     try{
       const b = await archivoDe(c), dur = await duracionDe(b);
       if(!dur || !isFinite(dur)) return;
-      const cortable = /mp3|mpeg|ogg|opus|wav|flac/i.test(b.type + ' ' + c.nombre) && dur > 60;
-      let cab, cola, colaDur;
+      const cortable = /mp3|mpeg|ogg|opus|wav|flac/i.test(b.type + ' ' + c.nombre) && dur > 70;
+      let cab, cola;
       if(cortable){
-        try{ cab = await decodificar(b.slice(0, Math.ceil(b.size * 15 / dur))); }catch(e){}
-        try{ cola = await decodificar(b.slice(Math.floor(b.size * (1 - 35 / dur)))); }catch(e){}
+        try{ cab = await decodificar(b.slice(0, Math.ceil(b.size * 30 / dur))); }catch(e){}
+        try{ cola = await decodificar(b.slice(Math.floor(b.size * (1 - 45 / dur)))); }catch(e){}
       }
       if(!cab || !cola){ const t = await decodificar(b); cab = cab || t; cola = cola || t; }
-      colaDur = cola.duration;
+      const offCola = Math.max(0, dur - cola.duration);     // el final del pedazo coincide con el final de la canción
       // inicio: primer momento con sonido real
       const h = ventanasRMS(cab); let ini = 0;
       for(let k = 0; k < h.rms.length; k++) if(h.rms[k] > 0.01){ ini = Math.max(0, k * h.seg - 0.05); break; }
-      // final: último momento con sonido fuerte (deja fuera el silencio y lo más bajo del final)
+      ini = Math.min(ini, 15);
+      // final: último momento con sonido fuerte
       const t = ventanasRMS(cola), pico = Math.max(...t.rms);
       const umbral = Math.max(0.01, pico * 0.06);
       let ult = t.rms.length - 1; while(ult > 0 && t.rms[ult] < umbral) ult--;
-      let fin = dur - (colaDur - (ult + 1) * t.seg);
-      fin = Math.min(dur, Math.max(dur - 30, fin));
-      c.ini = Math.min(ini, 15); c.fin = Math.max(c.ini + 10, fin);
+      let fin = offCola + (ult + 1) * t.seg;
+      fin = Math.min(dur, Math.max(dur - 40, fin, ini + 10));
+      // salida: dónde la canción empieza a bajar sola (el "fade" de la grabación)
+      const ts = suavizar(t.rms, 20);                        // promedio de 1 s
+      const cuerpo = percentil(ts.slice(0, Math.max(1, Math.floor(ts.length * 0.6))), 0.7);
+      let k2 = Math.min(ts.length - 1, Math.floor((fin - offCola) / t.seg));
+      while(k2 > 0 && ts[k2] < cuerpo * 0.7) k2--;
+      let sal = offCola + (k2 + 1) * t.seg;
+      sal = Math.min(fin, Math.max(sal, fin - 25, ini + 10));
+      // nivel (qué tan fuerte suena) al empezar y al terminar
+      const hs = suavizar(h.rms, 20).slice(Math.floor(ini / h.seg));
+      c.nivIni = +percentil(hs, 0.7).toFixed(4);
+      c.nivFin = +cuerpo.toFixed(4);
+      // golpes: al principio (después del silencio) y antes de la salida
+      const pista = c.bpm || 0;
+      c.rIni = await rejilla(cab, ini, ini + 20, 0, pista);
+      c.rFin = await rejilla(cola, (sal - offCola) - 22, sal - offCola, offCola, pista);
+      c.ini = ini; c.fin = fin; c.sal = sal; c.djv = DJV;
       guardarCancion(c);
     }catch(e){}
     bordesEnCurso.delete(c);
@@ -531,14 +626,42 @@ function curva(desde, hasta){ // mezcla de "potencia igual": no baja el volumen 
   for(let k = 0; k < n; k++){ const x = k / (n - 1); a[k] = desde < hasta ? Math.sin(x * Math.PI / 2) : Math.cos(x * Math.PI / 2); }
   return a;
 }
-async function mezclarA(i, seg){
+function curvaGain(desde, hasta, forma){ // forma: 'sube' (sin^2 suave) o 'baja'
+  const n = 64, a = new Float32Array(n);
+  for(let k = 0; k < n; k++){ const x = k / (n - 1); const s = Math.sin(x * Math.PI / 2); a[k] = desde + (hasta - desde) * (forma === 'sube' ? s : 1 - Math.cos(x * Math.PI / 2)); }
+  return a;
+}
+function pararRampaVel(){ if(rampaVel){ clearInterval(rampaVel); rampaVel = null; } }
+function velocidad(d, r){ try{ d.preservesPitch = true; d.mozPreservesPitch = true; d.webkitPreservesPitch = true; }catch(e){} d.playbackRate = r; }
+function esperarEvento(el, ev, ms){ return new Promise(ok => { const t = setTimeout(ok, ms); el.addEventListener(ev, () => { clearTimeout(t); ok(); }, {once:true}); }); }
+function resetPlatos(){
+  if(!gBajo || !ctxA) return;
+  gBajo.forEach(b => { b.gain.cancelScheduledValues(0); b.gain.setValueAtTime(0, ctxA.currentTime); });
+}
+
+// Plan de unión de golpes entre la canción que suena (vieja) y la que entra (nueva)
+function planSync(cv, cn, viejo){
+  if(!cv || !cn || !cv.rFin || !cn.rIni) return null;
+  if(cv.rFin.fz < 1.35 || cn.rIni.fz < 1.35) return null;   // golpe poco claro: no se puede unir bien
+  const rv = viejo.playbackRate || 1;
+  const Pv = cv.rFin.p / rv;                                // segundos reales por golpe de la vieja
+  let mejor = null;
+  for(const T of [Pv, Pv / 2, Pv * 2]){
+    const r = cn.rIni.p / T;
+    if(Math.abs(r - 1) <= 0.08 && (!mejor || Math.abs(r - 1) < Math.abs(mejor.r - 1))) mejor = {r, T};
+  }
+  return mejor ? {rn: mejor.r, Pv, rv} : null;
+}
+
+async function mezclarA(i, seg, auto = false){
   if(mezclando || i < 0 || !lista[i]) return;
   armarAudio(); if(!ctxA){ cargar(i); return; }
-  const c = lista[i];
+  const c = lista[i], cv = lista[actual];
   mezclando = true;
+  pararRampaVel();
   try{
+    await prepararBordes(c);
     if(!(proxima && proxima.c === c && proxima.listo)){
-      await prepararBordes(c);
       const b = await archivoDe(c), d = otroDeck();
       ponerFuente(d, b);
       await new Promise(ok => { if(d.readyState >= 1) ok(); else d.addEventListener('loadedmetadata', ok, {once:true}); });
@@ -546,42 +669,124 @@ async function mezclarA(i, seg){
     }
   }catch(e){ mezclando = false; cargar(i); return; }
   const viejo = audio, nuevo = otroDeck();
-  const kV = decks.indexOf(viejo), kN = decks.indexOf(nuevo), t = ctxA.currentTime + 0.05;
-  gDeck[kN].gain.cancelScheduledValues(0); gDeck[kN].gain.setValueAtTime(0, ctxA.currentTime);
-  gDeck[kV].gain.cancelScheduledValues(0); gDeck[kV].gain.setValueAtTime(gDeck[kV].gain.value, ctxA.currentTime);
+  const kV = decks.indexOf(viejo), kN = decks.indexOf(nuevo);
+  const sync = auto ? planSync(cv, c, viejo) : null;
+  const ahora = () => ctxA.currentTime;
+  gDeck[kN].gain.cancelScheduledValues(0); gDeck[kN].gain.setValueAtTime(0, ahora());
+  gDeck[kV].gain.cancelScheduledValues(0); gDeck[kV].gain.setValueAtTime(gDeck[kV].gain.value, ahora());
+  if(gBajo){ gBajo[kN].gain.cancelScheduledValues(0); gBajo[kV].gain.cancelScheduledValues(0); gBajo[kV].gain.setValueAtTime(gBajo[kV].gain.value, ahora()); }
   nuevo.volume = viejo.volume;
-  try{ await nuevo.play(); }catch(e){}
-  gDeck[kN].gain.setValueCurveAtTime(curva(0, 1), t, seg);
-  gDeck[kV].gain.setValueCurveAtTime(curva(1, 0), t, seg);
+  // nivel: que la nueva no suene más bajita ni más fuerte que la que se va
+  let kNivel = 1;
+  if(auto && cv && cv.nivFin && c.nivIni) kNivel = Math.max(0.7, Math.min(1.4, cv.nivFin / c.nivIni));
+
+  let largo = seg, t0;
+  if(sync){
+    // la nueva va a la misma velocidad que la vieja (sin cambiar el tono)
+    velocidad(nuevo, sync.rn);
+    const {Pv, rv} = sync, rn = sync.rn;
+    const fV = cv.rFin.f, pV = cv.rFin.p, fN = c.rIni.f, pN = c.rIni.p;
+    // golpe de entrada de la nueva: el más cercano a donde empieza a sonar
+    let bN = fN + Math.round(((c.ini || 0) - fN) / pN) * pN; if(bN < 0) bN += pN * Math.ceil(-bN / pN);
+    // próximo golpe de la vieja (al menos 0,3 s adelante)
+    const pv0 = viejo.currentTime;
+    const bV = fV + Math.ceil((pv0 + 0.3 * rv - fV) / pV) * pV;
+    const tEspera = (bV - pv0) / rv;                       // segundos reales hasta ese golpe
+    let pos = bN - tEspera * rn;
+    while(pos < 0){ bN += pN; pos += pN; }
+    nuevo.currentTime = pos;
+    await esperarEvento(nuevo, 'seeked', 400);
+    try{ await nuevo.play(); }catch(e){}
+    // corrige el desfase (todavía no se escucha la nueva)
+    for(let intento = 0; intento < 3; intento++){
+      await espera(60);
+      const quiere = bN + ((viejo.currentTime - bV) / rv) * rn;
+      const err = nuevo.currentTime - quiere;
+      if(Math.abs(err) < 0.012) break;
+      nuevo.currentTime = quiere + 0.03 * rn;           // un poquito adelantado por lo que tarda en buscar
+      await esperarEvento(nuevo, 'seeked', 300);
+    }
+    // la mezcla dura un número entero de compases (4 golpes) y empieza en un golpe de la vieja
+    const golpes = Math.max(8, Math.round(seg / Pv / 4) * 4);
+    largo = golpes * Pv;
+    const hastaGolpe = (((fV - viejo.currentTime) / rv) % Pv + Pv) % Pv;
+    t0 = ahora() + 0.05 + hastaGolpe;
+  } else {
+    velocidad(nuevo, 1);
+    try{ await nuevo.play(); }catch(e){}
+    t0 = ahora() + 0.05;
+  }
+
+  if(sync && gBajo){
+    // Mezcla de DJ: la nueva entra sin bajos; a la mitad se pasan los bajos; luego se va la vieja
+    const mitad = largo / 2, cambio = Math.min(0.6, sync.Pv);
+    gBajo[kN].gain.setValueAtTime(BAJO_FUERA, ahora());
+    gDeck[kN].gain.setValueCurveAtTime(curvaGain(0, kNivel, 'sube'), t0, largo * 0.45);
+    gBajo[kN].gain.setValueAtTime(BAJO_FUERA, t0 + mitad - cambio);
+    gBajo[kN].gain.linearRampToValueAtTime(0, t0 + mitad);
+    gBajo[kV].gain.setValueAtTime(gBajo[kV].gain.value, t0 + mitad - cambio);
+    gBajo[kV].gain.linearRampToValueAtTime(BAJO_FUERA, t0 + mitad);
+    gDeck[kV].gain.setValueCurveAtTime(curvaGain(gDeck[kV].gain.value || 1, 0, 'baja'), t0 + largo * 0.55, largo * 0.45);
+  } else {
+    // Sin golpe claro: mezcla corta de "potencia igual"
+    largo = auto ? Math.min(seg, 5) : seg;
+    if(gBajo) gBajo[kN].gain.setValueAtTime(0, ahora());
+    const sube = curva(0, 1).map(v => v * kNivel);
+    gDeck[kN].gain.setValueCurveAtTime(sube, t0, largo);
+    gDeck[kV].gain.setValueCurveAtTime(curva(1, 0), t0, largo);
+  }
   // desde ya, la pantalla muestra la canción nueva
   audio = nuevo; actual = i; proxima = null;
-  setTimeout(nuevaCancionEstereo, seg * 500);   // a media mezcla se empieza a medir la canción nueva
+  setTimeout(nuevaCancionEstereo, (t0 - ahora() + largo / 2) * 1000);
   $('barra').max = nuevo.duration || 0; $('tTot').textContent = fmt(nuevo.duration);
   mostrarActual(); pintarLista(); guardarEstado();
   if(flotAbierto()) cargarLetra();
   $('bPlay').textContent = '⏸';
-  timerMezcla = setTimeout(() => { viejo.pause(); mezclando = false; timerMezcla = null; }, seg * 1000 + 200);
+  timerMezcla = setTimeout(() => {
+    viejo.pause(); velocidad(viejo, 1);
+    if(gBajo){ gBajo[kV].gain.cancelScheduledValues(0); gBajo[kV].gain.setValueAtTime(0, ahora()); }
+    // la nueva vuelve poco a poco a su volumen y su velocidad normales (no se nota)
+    const kA = decks.indexOf(audio);
+    if(audio === nuevo){
+      gDeck[kA].gain.cancelScheduledValues(0); gDeck[kA].gain.setValueAtTime(gDeck[kA].gain.value, ahora());
+      gDeck[kA].gain.linearRampToValueAtTime(1, ahora() + 15);
+      if(Math.abs(nuevo.playbackRate - 1) > 0.001){
+        pararRampaVel();
+        rampaVel = setInterval(() => {
+          if(audio !== nuevo || mezclando){ pararRampaVel(); return; }
+          const r = nuevo.playbackRate, paso = 0.0015;
+          if(Math.abs(r - 1) <= paso){ velocidad(nuevo, 1); pararRampaVel(); }
+          else velocidad(nuevo, r + (r < 1 ? paso : -paso));
+        }, 400);
+      }
+    }
+    mezclando = false; timerMezcla = null;
+  }, (t0 - ahora() + largo) * 1000 + 200);
 }
 function cancelarMezcla(){
   if(timerMezcla){ clearTimeout(timerMezcla); timerMezcla = null; }
+  pararRampaVel();
   mezclando = false; proxima = null;
   const o = otroDeck(); o.pause();
+  velocidad(o, 1); velocidad(audio, 1);
   if(gDeck && ctxA){
     const kA = decks.indexOf(audio), kO = decks.indexOf(o);
     gDeck[kA].gain.cancelScheduledValues(0); gDeck[kA].gain.setValueAtTime(1, ctxA.currentTime);
     gDeck[kO].gain.cancelScheduledValues(0); gDeck[kO].gain.setValueAtTime(0, ctxA.currentTime);
   }
+  resetPlatos();
 }
-// Vigila cuándo empezar a mezclar
+// Vigila cuándo empezar a mezclar: la mezcla termina donde la canción empieza a bajar sola
 enAudios('timeupdate', () => {
   if(!djSeg || mezclando || actual < 0 || audio.paused) return;
   const c = lista[actual]; if(!c) return;
-  const fin = c.fin || audio.duration; if(!fin || !isFinite(fin)) return;
-  const falta = fin - audio.currentTime;
-  if(falta < djSeg + 20 && !proxima) prepararSiguiente();
-  if(falta <= djSeg){
+  const punto = c.sal || c.fin || audio.duration; if(!punto || !isFinite(punto)) return;
+  const r = audio.playbackRate || 1;
+  const falta = (punto - audio.currentTime) / r;          // segundos reales
+  if(falta < djSeg + 25 && !proxima) prepararSiguiente();
+  if(falta <= djSeg + 0.8){
     const i = proxima && lista[proxima.i] === proxima.c ? proxima.i : siguienteIndice(true);
-    if(i >= 0) mezclarA(i, Math.max(1, Math.min(djSeg, falta > 1 ? falta : djSeg)));
+    if(i >= 0) mezclarA(i, Math.max(2, Math.min(djSeg, falta > 2 ? falta : djSeg)), true);
   }
 });
 // Si el usuario cambia algo que afecta la siguiente canción, se vuelve a elegir
@@ -680,7 +885,7 @@ async function cargar(i, reproducir=true, desde=0){
     if(c.deCarpeta){ cargaPend = {i, desde}; pedirConexion(); }
     return;
   }
-  if(djSeg && !desde && !c.fin){ await Promise.race([prepararBordes(c), espera(1500)]); }
+  if(djSeg && !desde && c.djv !== DJV){ await Promise.race([prepararBordes(c), espera(1500)]); }
   if(actual !== i) return;
   cancelarMezcla();
   nuevaCancionEstereo();
@@ -700,7 +905,16 @@ function play(){
 }
 function siguienteIndice(auto){
   const v = visibles(); if(!v.length) return -1;
-  if(aleatorio && v.length > 1){ let n; do{ n = v[Math.floor(Math.random()*v.length)]; }while(n === actual); return n; }
+  if(aleatorio && v.length > 1){
+    // Modo DJ: si se puede, la siguiente es una canción con golpe marcado y velocidad parecida
+    const ca = lista[actual];
+    if(djSeg && ca && mezclable(ca)){
+      const tA = tempoDJ(ca.bpm);
+      const afines = v.filter(n => n !== actual && mezclable(lista[n]) && Math.abs(tempoDJ(lista[n].bpm) / tA - 1) <= 0.06);
+      if(afines.length) return afines[Math.floor(Math.random() * afines.length)];
+    }
+    let n; do{ n = v[Math.floor(Math.random()*v.length)]; }while(n === actual); return n;
+  }
   const p = v.indexOf(actual);
   if(p >= 0 && p + 1 < v.length) return v[p + 1];
   if(p < 0) return v[0];

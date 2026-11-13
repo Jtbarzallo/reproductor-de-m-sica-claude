@@ -1,0 +1,9 @@
+# Lista de mejoras — Reproductor JAT
+
+## Hechas
+- [x] Modo DJ "de verdad" (13 nov): une los golpes (iguala velocidad sin cambiar el tono y entra en el golpe), pasa los bajos de una canción a la otra, termina la mezcla antes de que la canción baje sola, iguala el volumen, y en aleatorio elige la siguiente con velocidad parecida
+
+## Pendientes / ideas
+- [ ] Mezcla DJ también cuando se escucha por Android Auto (ahora Android Auto toca una tras otra)
+- [ ] Entrar en el inicio de un compás/frase (no solo en un golpe)
+- [ ] Mezclar también canciones de velocidades muy distintas con un efecto de transición (eco/filtro)
