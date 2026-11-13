@@ -39,6 +39,10 @@
   input[type=file]{display:none}
   input[type=text]{width:100%;padding:12px;border-radius:12px;border:1px solid #33406e;background:#0f1220;color:var(--txt);font-size:16px;margin-top:8px}
   a{color:var(--acc)}
+  #medidor{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center;margin-top:10px;font-size:12px;color:var(--mut)}
+  #medidor div{height:8px;border-radius:4px;background:#0f1220;overflow:hidden}
+  #medidor i{display:block;height:100%;width:0;background:var(--acc);transition:width .12s linear}
+  #estEstado{font-size:14px;color:var(--mut);margin-top:8px;min-height:18px}
   .est{display:flex;gap:6px;margin-top:10px}
   .est button{flex:1;font-size:14px;padding:10px 4px}
   .chips{display:flex;gap:8px;overflow-x:auto;padding:4px 0 8px;scrollbar-width:none}
@@ -87,6 +91,9 @@
       <button data-m="maximo">Máximo</button>
       <button data-m="mono">Mono→Estéreo</button>
     </div>
+    <div id="medidor"><span>Izq.</span><div><i id="mL"></i></div><span>Der.</span><div><i id="mR"></i></div></div>
+    <div id="estEstado"></div>
+    <button id="bProbar" style="width:100%;margin-top:8px;font-size:14px;padding:10px">🔊 Probar parlante izquierdo y derecho</button>
     <div style="margin-top:12px;font-size:15px;color:var(--mut)">🎚 Modo DJ (mezcla sin silencios)</div>
     <div class="est" id="djChips">
       <button data-s="0">Apagado</button>
@@ -231,16 +238,21 @@ function guardarEstado(){
 }
 function leerEstado(){ try{ return JSON.parse(localStorage.getItem('reproductorJAT_estado')); }catch(e){ return null; } }
 
-function aplicarEstado(e, conPos){
+function aplicarEstado(e, conPos, soloLista = false){
+  // soloLista: llegaron canciones nuevas → solo se acomoda el orden y sus datos; los ajustes actuales NO se tocan
   if(!e) return;
+  const sonando = lista[actual];
   if(Array.isArray(e.orden)){
     const pos = n => { const i = e.orden.indexOf(n); return i < 0 ? 1e9 : i; };
     lista.sort((a,b) => pos(a.nombre) - pos(b.nombre));
   }
-  if(typeof e.volumen === 'number'){ decks.forEach(d => d.volume = e.volumen); $('vol').value = e.volumen; }
-  if(typeof e.dj === 'number') ponerDJ(e.dj, false);
-  aleatorio = !!e.aleatorio; repetir = !!e.repetir; pintarModos();
-  if(e.estereo && PRESETS[e.estereo]) ponerEstereo(e.estereo, false);
+  if(Array.isArray(e.orden) && sonando) actual = lista.indexOf(sonando);   // el orden cambió: se sigue la misma canción
+  if(!soloLista){
+    if(typeof e.volumen === 'number'){ decks.forEach(d => d.volume = e.volumen); $('vol').value = e.volumen; }
+    if(typeof e.dj === 'number') ponerDJ(e.dj, false);
+    aleatorio = !!e.aleatorio; repetir = !!e.repetir; pintarModos();
+    if(e.estereo && PRESETS[e.estereo]) ponerEstereo(e.estereo, false);
+  }
   if(e.etiquetas) lista.forEach(c => {
     const t = e.etiquetas[c.nombre]; if(!t) return;
     let cambio = false;
@@ -248,63 +260,195 @@ function aplicarEstado(e, conPos){
     if(cambio) guardarCancion(c);
   });
   if(e.clave && !claveGuardada()) guardarClave(e.clave);
-  if(e.vista && e.vista.por) vista = {por: e.vista.por, grupo: e.vista.grupo ?? null};
+  if(!soloLista && e.vista && e.vista.por) vista = {por: e.vista.por, grupo: e.vista.grupo ?? null};
   const i = lista.findIndex(c => c.nombre === e.actual);
-  if(i >= 0){ cargar(i, false, conPos ? e.posicion : 0); }
+  if(i >= 0 && !(soloLista && (audio.src || actual >= 0))){ cargar(i, false, conPos ? e.posicion : 0); }
   pintarLista();
 }
 
 /* ---------- Sonido estéreo (Web Audio) ---------- */
-// ancho = cuánto se abre el estéreo; falso = cuánto estéreo se "crea" (sirve para canciones mono)
-const PRESETS = { normal:{ancho:1, falso:0}, amplio:{ancho:1.6, falso:0.25}, maximo:{ancho:2.2, falso:0.4}, mono:{ancho:1, falso:0.65} };
-let modoEst = 'normal', ctxA = null, nAncho = null, nFalso = null, gDeck = null;
+// ancho     = hasta cuánto se separan los lados (1 = original)
+// tope      = separación máxima a la que se llega (si la canción ya es muy abierta, se abre menos para que no suene "hueca")
+// falso     = cuánto estéreo se "crea" a partir del centro en una canción que ya es estéreo
+// falsoMono = lo mismo cuando la canción es mono o casi mono (ahí hace falta más)
+// salida    = baja un poco el volumen para que el efecto no sature
+const PRESETS = {
+  normal: {ancho: 1,   tope: 1,    falso: 0,   falsoMono: 0,    salida: 1},
+  amplio: {ancho: 1.8, tope: 0.7,  falso: 0.2, falsoMono: 0.6,  salida: 0.92},
+  maximo: {ancho: 2.4, tope: 0.95, falso: 0.4, falsoMono: 1,    salida: 0.85},
+  mono:   {ancho: 1.2, tope: 0.95, falso: 0.9, falsoMono: 1.3,  salida: 0.85},
+};
+const COMP_LIM = 0.877;   // el limitador sube solo ~1,1 dB; esto lo devuelve a su sitio
+let modoEst = 'normal', ctxA = null, audioRoto = '', gDeck = null;
+let nAncho = null, nFalso = null, nNivel = null, gSeco = null, gEfecto = null, gMusica = null, nFin = null, anL = null, anR = null, anM = null, anS = null;
+let ctxBase = null, qLados = null;   // qLados: qué tan abierta es la canción que suena (0 = mono)
 function armarAudio(){
-  if(ctxA) return;
+  if(ctxA || audioRoto) return;
+  let c = null; const fuentes = [];
   try{
-    ctxA = new (window.AudioContext || window.webkitAudioContext)();
-    const sp = ctxA.createChannelSplitter(2), mg = ctxA.createChannelMerger(2);
-    const g = v => { const n = ctxA.createGain(); n.gain.value = v; return n; };
-    const a2 = g(1); a2.channelCountMode = 'explicit'; a2.channelCount = 2; a2.channelInterpretation = 'speakers'; // mono → copia a los 2 lados
-    // Dos "platos" (como un DJ): cada uno con su volumen para mezclar
-    gDeck = decks.map(d => { const s = ctxA.createMediaElementSource(d), gn = g(d === audio ? 1 : 0); s.connect(gn); gn.connect(a2); return gn; });
-    a2.connect(sp);
-    // Centro (M) y lados (S)
-    const mid = g(0.5), side = g(1);
-    const lM = g(1), rM = g(1), lS = g(0.5), rS = g(-0.5);
+    c = new (window.AudioContext || window.webkitAudioContext)(); ctxBase = c;
+    const g = v => { const n = c.createGain(); n.gain.value = v; return n; };
+    // Todo se arma primero; las canciones se conectan al final (si algo falla, el sonido no se pierde)
+    const entrada = g(1); entrada.channelCountMode = 'explicit'; entrada.channelCount = 2; entrada.channelInterpretation = 'speakers'; // mono → a los 2 lados
+    const sp = c.createChannelSplitter(2), mg = c.createChannelMerger(2);
+    entrada.connect(sp);
+    // Centro (M = lo que suena igual en los dos lados) y lados (S = lo que es distinto)
+    const mid = g(1), side = g(1);
+    const lM = g(0.5), rM = g(0.5), lS = g(0.5), rS = g(-0.5);
     sp.connect(lM, 0); sp.connect(rM, 1); lM.connect(mid); rM.connect(mid);
     sp.connect(lS, 0); sp.connect(rS, 1); lS.connect(side); rS.connect(side);
-    nAncho = g(1); side.connect(nAncho);
-    // Estéreo artificial: el centro con un pequeño retraso y sin graves se suma a los lados
-    const ret = ctxA.createDelay(0.05); ret.delayTime.value = 0.013;
-    const pa = ctxA.createBiquadFilter(); pa.type = 'highpass'; pa.frequency.value = 250;
-    nFalso = g(0); mid.connect(ret); ret.connect(pa); pa.connect(nFalso);
-    const sTot = g(1); nAncho.connect(sTot); nFalso.connect(sTot);
+    // Medición de la canción: cuánto hay al centro y cuánto a los lados
+    anM = c.createAnalyser(); anS = c.createAnalyser(); anM.fftSize = anS.fftSize = 2048; mid.connect(anM); side.connect(anS);
+    const sTot = g(1);
+    side.connect(sTot);                                   // los lados originales, siempre
+    // Lo que se agrega al abrir: los lados otra vez pero sin graves (el bajo se queda al centro y no retumba)
+    const sinGraves = c.createBiquadFilter(); sinGraves.type = 'highpass'; sinGraves.frequency.value = 120; sinGraves.Q.value = 0.5;
+    nAncho = g(0); side.connect(sinGraves); sinGraves.connect(nAncho); nAncho.connect(sTot);
+    // Estéreo creado: el centro, con un pequeño retraso y sin graves, va a un lado sumando y al otro restando
+    // (dos retrasos distintos, uno sumando y otro restando: reparte el sonido sin cargar la voz hacia un lado)
+    const ret1 = c.createDelay(0.05), ret2 = c.createDelay(0.05); ret1.delayTime.value = 0.011; ret2.delayTime.value = 0.019;
+    const t1 = g(0.6), t2 = g(-0.6);
+    const pa = c.createBiquadFilter(); pa.type = 'highpass'; pa.frequency.value = 380; pa.Q.value = 0.5;   // el cuerpo de la voz y el bajo se quedan al centro
+    nFalso = g(0); mid.connect(ret1); ret1.connect(t1); t1.connect(pa); mid.connect(ret2); ret2.connect(t2); t2.connect(pa);
+    pa.connect(nFalso); nFalso.connect(sTot);
     const sInv = g(-1); sTot.connect(sInv);
     // Izquierda = M + S ; Derecha = M − S
     mid.connect(mg, 0, 0); sTot.connect(mg, 0, 0);
     mid.connect(mg, 0, 1); sInv.connect(mg, 0, 1);
-    // Limitador suave para que no distorsione al abrir el estéreo
-    const lim = ctxA.createDynamicsCompressor();
-    lim.threshold.value = -3; lim.knee.value = 6; lim.ratio.value = 12; lim.attack.value = 0.003; lim.release.value = 0.15;
-    mg.connect(lim); lim.connect(ctxA.destination);
-    aplicarEstereo();
-  }catch(e){ ctxA = null; }
+    // Limitador: solo en el camino del efecto, para que no distorsione
+    nNivel = g(1);
+    const lim = c.createDynamicsCompressor();
+    lim.threshold.value = -2; lim.knee.value = 4; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.12;
+    // Tope final suave: pase lo que pase, nunca sale más fuerte que el máximo (no "revienta")
+    const tope = c.createWaveShaper(), N = 2049, curva = new Float32Array(N);
+    for(let i = 0; i < N; i++){
+      const x = (i / (N - 1)) * 2 - 1, a = Math.abs(x) / 0.6;              // la entrada llega dividida para 0.6
+      const y = a <= 0.85 ? a : 0.85 + 0.14 * Math.tanh((a - 0.85) / 0.14);  // recto hasta 0.85, luego se curva hasta 0.99
+      curva[i] = Math.sign(x) * y;
+    }
+    tope.curve = curva; tope.oversample = '2x';
+    const antesTope = g(COMP_LIM * 0.6);
+    gEfecto = g(0); mg.connect(nNivel); nNivel.connect(lim); lim.connect(antesTope); antesTope.connect(tope); tope.connect(gEfecto);
+    // Camino "Normal": el sonido original intacto
+    gSeco = g(1); entrada.connect(gSeco);
+    gMusica = g(1); gSeco.connect(gMusica); gEfecto.connect(gMusica);
+    nFin = g(1); gMusica.connect(nFin); nFin.connect(c.destination);
+    // Medidor izquierda / derecha de lo que realmente sale
+    const spM = c.createChannelSplitter(2); nFin.connect(spM);
+    anL = c.createAnalyser(); anR = c.createAnalyser(); anL.fftSize = anR.fftSize = 2048;
+    spM.connect(anL, 0); spM.connect(anR, 1);
+    // Dos "platos" (como un DJ): cada uno con su volumen para mezclar
+    const gd = [];
+    decks.forEach(d => { const f = c.createMediaElementSource(d); fuentes.push(f); const gn = g(d === audio ? 1 : 0); f.connect(gn); gn.connect(entrada); gd.push(gn); });
+    gDeck = gd; ctxA = c;
+    c.onstatechange = () => { if(c.state !== 'running' && !audio.paused) c.resume().catch(() => {}); };
+    aplicarEstereo(true);
+  }catch(e){
+    audioRoto = (e && e.message) || 'error';
+    anL = anR = anM = anS = null;
+    // que nunca se quede sin sonido: lo ya conectado va directo a la salida
+    try{ fuentes.forEach(f => { try{ f.disconnect(); }catch(_){} f.connect(c.destination); }); }catch(_){}
+    ctxA = null; gDeck = null;
+    pintarEstadoEstereo();
+  }
 }
-function aplicarEstereo(){
+function aplicarEstereo(ya = false, lento = false){
   if(!ctxA) return;
-  const p = PRESETS[modoEst] || PRESETS.normal, t = ctxA.currentTime;
-  nAncho.gain.setTargetAtTime(p.ancho, t, 0.05);
-  nFalso.gain.setTargetAtTime(p.falso, t, 0.05);
+  const p = PRESETS[modoEst] || PRESETS.normal, t = ctxA.currentTime, k = ya ? 0.001 : lento ? 0.35 : 0.04;
+  const efecto = modoEst !== 'normal';
+  // Se ajusta a la canción: si es mono o cerrada se crea más estéreo; si ya es muy abierta se abre menos
+  let ancho = p.ancho, falso = p.falso;
+  if(qLados !== null){
+    ancho = Math.max(1, Math.min(p.ancho, p.tope / Math.max(qLados, 0.01)));
+    falso = p.falso + (p.falsoMono - p.falso) * Math.max(0, Math.min(1, 1 - qLados / 0.2));
+    falso *= Math.max(0, Math.min(1, (1 - qLados) / 0.5));   // canción ya separada del todo (un lado solo): no se le crea nada
+  }
+  const cambios = [[nAncho, ancho - 1], [nFalso, falso]];
+  if(!lento) cambios.push([nNivel, p.salida], [gSeco, efecto ? 0 : 1], [gEfecto, efecto ? 1 : 0]);
+  cambios.forEach(([n, v]) => { n.gain.cancelScheduledValues(t); n.gain.setTargetAtTime(v, t, k); });
 }
+// Cada 0,3 s mide la canción que suena (centro contra lados) y acomoda el efecto
+function rmsDe(an, buf){ an.getFloatTimeDomainData(buf); let e = 0; for(let i = 0; i < buf.length; i++) e += buf[i] * buf[i]; return Math.sqrt(e / buf.length); }
+const bufMed = new Float32Array(2048);
+setInterval(() => {
+  if(!ctxA || !anM || audio.paused) return;
+  const m = rmsDe(anM, bufMed), sd = rmsDe(anS, bufMed);
+  if(m < 0.003 && sd < 0.003) return;                       // silencio: no se mide
+  const q = Math.min(2, sd / Math.max(m, 1e-4));
+  qLados = qLados === null ? q : qLados * 0.75 + q * 0.25;
+  if(modoEst !== 'normal') aplicarEstereo(false, true);
+}, 300);
+function nuevaCancionEstereo(){ qLados = null; }             // al cambiar de canción se vuelve a medir
 function ponerEstereo(m, guardar = true){
-  modoEst = m;
-  document.querySelectorAll('#est button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  modoEst = PRESETS[m] ? m : 'normal';
+  document.querySelectorAll('#est button').forEach(b => b.classList.toggle('on', b.dataset.m === modoEst));
   aplicarEstereo();
+  pintarEstadoEstereo();
   if(guardar) guardarEstado();
 }
-document.querySelectorAll('#est button').forEach(b => b.onclick = () => { armarAudio(); if(ctxA && ctxA.state === 'suspended') ctxA.resume(); ponerEstereo(b.dataset.m); });
+function despertarAudio(){ armarAudio(); const c = ctxA || ctxBase; if(c && c.state !== 'running') c.resume().catch(() => {}); }
+document.querySelectorAll('#est button').forEach(b => b.onclick = () => { despertarAudio(); ponerEstereo(b.dataset.m); });
+decks.forEach(d => d.addEventListener('play', despertarAudio));
+
+// --- Medidor y estado: para VER que el efecto está funcionando ---
+let amplitudEst = null, probando = false;
+function pintarEstadoEstereo(){
+  if(probando) return;
+  const el = $('estEstado'); if(!el) return;
+  if(audioRoto){ el.textContent = '⚠ Este celular no permitió activar el efecto (' + audioRoto + '). La música suena normal.'; return; }
+  const nombre = {normal: 'Sonido original', amplio: '✔ Ampliado activo', maximo: '✔ Máximo activo', mono: '✔ Mono→Estéreo activo'}[modoEst];
+  el.textContent = nombre + (amplitudEst !== null ? ` · separación entre lados: ${amplitudEst}%` : (ctxA ? '' : ' · toca ▶ para medir'));
+}
+function leerMedidor(){
+  if(!ctxA || !anL) return null;
+  const N = anL.fftSize, l = new Float32Array(N), r = new Float32Array(N);
+  anL.getFloatTimeDomainData(l); anR.getFloatTimeDomainData(r);
+  let ll = 0, rr = 0, lr = 0;
+  for(let i = 0; i < N; i++){ ll += l[i]*l[i]; rr += r[i]*r[i]; lr += l[i]*r[i]; }
+  return {izq: Math.sqrt(ll / N), der: Math.sqrt(rr / N), corr: ll > 1e-9 && rr > 1e-9 ? lr / Math.sqrt(ll * rr) : null};
+}
+let corrSuave = null;
+setInterval(() => {
+  if(document.visibilityState !== 'visible') return;
+  const m = (!audio.paused || probando) ? leerMedidor() : null;
+  const barra = v => Math.min(100, Math.round(Math.sqrt(v) * 160)) + '%';
+  $('mL').style.width = m ? barra(m.izq) : '0'; $('mR').style.width = m ? barra(m.der) : '0';
+  if(m && m.corr !== null && !probando){
+    corrSuave = corrSuave === null ? m.corr : corrSuave * 0.7 + m.corr * 0.3;
+    amplitudEst = Math.max(0, Math.min(100, Math.round((1 - corrSuave) * 100)));
+  } else if(!m){ corrSuave = null; amplitudEst = null; }
+  pintarEstadoEstereo();
+}, 250);
+
+// --- Prueba: un pitido solo por la izquierda y luego solo por la derecha ---
+$('bProbar').onclick = async () => {
+  if(probando) return;
+  despertarAudio();
+  const el = $('estEstado');
+  if(!ctxA){ el.textContent = '⚠ No se pudo iniciar el audio en este celular.'; return; }
+  probando = true; $('bProbar').disabled = true;
+  const t0 = ctxA.currentTime + 0.1;
+  gMusica.gain.cancelScheduledValues(t0); gMusica.gain.setTargetAtTime(0.08, ctxA.currentTime, 0.03);   // baja la música
+  const mgP = ctxA.createChannelMerger(2); mgP.connect(nFin);
+  const pitido = (canal, ini, f) => {
+    const o = ctxA.createOscillator(), gn = ctxA.createGain();
+    o.frequency.value = f; gn.gain.value = 0;
+    gn.gain.setValueAtTime(0, ini); gn.gain.linearRampToValueAtTime(0.3, ini + 0.03);
+    gn.gain.setValueAtTime(0.3, ini + 0.85); gn.gain.linearRampToValueAtTime(0, ini + 0.9);
+    o.connect(gn); gn.connect(mgP, 0, canal); o.start(ini); o.stop(ini + 0.95);
+  };
+  pitido(0, t0, 660); pitido(1, t0 + 1.3, 880);
+  el.textContent = '◀◀ Ahora debe sonar SOLO por la IZQUIERDA';
+  await espera(1400);
+  el.textContent = 'Ahora debe sonar SOLO por la DERECHA ▶▶';
+  await espera(1300);
+  gMusica.gain.setTargetAtTime(1, ctxA.currentTime, 0.05);
+  try{ mgP.disconnect(); }catch(e){}
+  el.textContent = 'Si los dos pitidos sonaron en el mismo lugar, tu parlante o audífono está en mono y ningún efecto estéreo se puede notar ahí.';
+  await espera(6000);
+  probando = false; $('bProbar').disabled = false; pintarEstadoEstereo();
+};
 ponerEstereo('normal', false);
-decks.forEach(d => d.addEventListener('play', () => { armarAudio(); if(ctxA && ctxA.state === 'suspended') ctxA.resume(); }));
 
 /* ---------- Modo DJ: mezcla entre canciones sin silencios ---------- */
 let djSeg = 0, mezclando = false, timerMezcla = null, proxima = null;
@@ -411,6 +555,7 @@ async function mezclarA(i, seg){
   gDeck[kV].gain.setValueCurveAtTime(curva(1, 0), t, seg);
   // desde ya, la pantalla muestra la canción nueva
   audio = nuevo; actual = i; proxima = null;
+  setTimeout(nuevaCancionEstereo, seg * 500);   // a media mezcla se empieza a medir la canción nueva
   $('barra').max = nuevo.duration || 0; $('tTot').textContent = fmt(nuevo.duration);
   mostrarActual(); pintarLista(); guardarEstado();
   if(flotAbierto()) cargarLetra();
@@ -538,6 +683,7 @@ async function cargar(i, reproducir=true, desde=0){
   if(djSeg && !desde && !c.fin){ await Promise.race([prepararBordes(c), espera(1500)]); }
   if(actual !== i) return;
   cancelarMezcla();
+  nuevaCancionEstereo();
   ponerFuente(audio, b);
   if(!desde && djSeg && c.ini > 0.3) desde = c.ini;   // modo DJ: salta el silencio del inicio
   if(desde){ const d = audio; d.addEventListener('loadedmetadata', () => { d.currentTime = desde; }, {once:true}); }
@@ -706,7 +852,7 @@ $('archivos').addEventListener('change', e => {
     lista.push(c); guardarCancion(c);
   });
   e.target.value = '';
-  if(respaldoPend){ aplicarEstado(respaldoPend, true); }
+  if(respaldoPend){ aplicarEstado(respaldoPend, true, true); }
   pintarLista(); guardarEstado();
   if(actual < 0 && lista.length) cargar(0, false);
   leerPendientes();
@@ -752,7 +898,7 @@ function aplicarRutas(rutas, conBlobs){
     lista = lista.filter(c => { if(c.deCarpeta && !set.has(c.ruta)){ borrarCancion(c.id); quitadas++; return false; } return true; });
     actual = cur ? lista.indexOf(cur) : -1;
   }
-  if(respaldoPend && nuevas) aplicarEstado(respaldoPend, false);
+  if(respaldoPend && nuevas) aplicarEstado(respaldoPend, false, true);
   return {nuevas, quitadas};
 }
 async function escanearCarpeta(silencioso = false){
