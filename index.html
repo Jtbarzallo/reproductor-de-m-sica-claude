@@ -41,6 +41,12 @@
   a{color:var(--acc)}
   .est{display:flex;gap:6px;margin-top:10px}
   .est button{flex:1;font-size:14px;padding:10px 4px}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:4px 0 8px;scrollbar-width:none}
+  .chips button{flex:0 0 auto;font-size:14px;padding:8px 12px;border-radius:20px;white-space:nowrap}
+  .chips b{font-weight:400;opacity:.7;margin-left:4px}
+  #aviso{display:none;background:#3a2f12;color:#ffd98a;border-radius:14px;padding:12px;margin-bottom:14px;font-size:15px}
+  #aviso button{margin-top:8px;width:100%;background:#ffd98a;color:#3a2f12;font-weight:700}
+  #infoCarpeta,#estadoClas{font-size:14px;color:var(--mut);margin-top:10px;min-height:18px;word-break:break-word}
   #estadoRec{font-size:14px;color:var(--mut);margin-top:10px;min-height:18px}
   #flot{position:fixed;left:12px;top:90px;width:min(92vw,420px);height:46vh;background:rgba(20,24,44,.94);
     border:1px solid #33406e;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;flex-direction:column;z-index:50;backdrop-filter:blur(6px)}
@@ -58,6 +64,7 @@
 <body>
 <div class="wrap">
   <h1>🎵 Reproductor de Música</h1>
+  <div id="aviso"><span id="avisoTxt"></span><button id="bConectar">🔄 Conectar mi carpeta de música</button></div>
 
   <div class="card">
     <div id="disco" class="disco"></div>
@@ -88,11 +95,25 @@
   </div>
 
   <div class="card">
-    <div class="fila">
-      <button onclick="document.getElementById('archivos').click()">➕ Agregar canciones</button>
+    <button id="bCarpeta" style="width:100%">📁 Elegir carpeta de música</button>
+    <div id="infoCarpeta"></div>
+    <div class="fila" style="margin-top:10px">
+      <button onclick="document.getElementById('archivos').click()">➕ Agregar sueltas</button>
       <button id="bLimpiar">🗑 Vaciar lista</button>
     </div>
     <input id="archivos" type="file" accept="audio/*" multiple>
+    <input id="dirInput" type="file" webkitdirectory multiple>
+  </div>
+
+  <div class="card">
+    <div style="font-size:15px;color:var(--mut)">Ver por</div>
+    <div class="chips" id="porChips">
+      <button data-p="todas">Todas</button><button data-p="genero">Género</button><button data-p="ritmo">Ritmo</button>
+      <button data-p="artista">Artista</button><button data-p="album">Álbum</button><button data-p="anio">Año</button><button data-p="carpeta">Carpeta</button>
+    </div>
+    <div class="chips" id="grupoChips"></div>
+    <button id="bClasificar" style="width:100%;margin-top:4px">🏷 Clasificar música (género y ritmo)</button>
+    <div id="estadoClas"></div>
   </div>
 
   <div class="card">
@@ -112,10 +133,9 @@
       <button onclick="document.getElementById('fResp').click()">📂 Cargar respaldo</button>
     </div>
     <input id="fResp" type="file" accept=".json,application/json">
-    <div class="nota">Las canciones se guardan dentro de la app para que sigan ahí al volver a abrirla.
-      El respaldo guarda en un archivo tu lista, la canción donde te quedaste, el volumen y los modos.
-      Si borras los datos del navegador, carga el respaldo y vuelve a agregar las canciones:
-      el orden y tu posición se restauran solos.</div>
+    <div class="nota">Las canciones de tu carpeta se leen directo de ella (no ocupan espacio doble); las sueltas se guardan dentro de la app.
+      El respaldo guarda en un archivo tu lista, dónde te quedaste, géneros, ritmos, títulos, letras, volumen y modos.
+      Si borras los datos del navegador: elige otra vez tu carpeta y carga el respaldo, y todo vuelve a quedar como estaba.</div>
   </div>
 </div>
 
@@ -139,14 +159,33 @@ let respaldoPend = null; // respaldo cargado esperando canciones
 let db;
 function abrirDB(){
   return new Promise((ok, mal) => {
-    const r = indexedDB.open('reproductorJAT', 1);
-    r.onupgradeneeded = () => r.result.createObjectStore('canciones', {keyPath:'id'});
+    const r = indexedDB.open('reproductorJAT', 2);
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      if(!d.objectStoreNames.contains('canciones')) d.createObjectStore('canciones', {keyPath:'id'});
+      if(!d.objectStoreNames.contains('ajustes')) d.createObjectStore('ajustes');
+    };
     r.onsuccess = () => { db = r.result; ok(); };
     r.onerror = () => mal(r.error);
   });
 }
 function tx(modo){ return db.transaction('canciones', modo).objectStore('canciones'); }
-function guardarCancion(c){ try{ tx('readwrite').put(c); }catch(e){} }
+function guardarCancion(c){
+  try{
+    let o = c;
+    if(c.deCarpeta){ o = Object.assign({}, c); delete o.blob; } // de la carpeta: no se copia el audio
+    tx('readwrite').put(o);
+  }catch(e){}
+}
+function ajuste(k, v){
+  return new Promise(ok => {
+    try{
+      const st = db.transaction('ajustes', v === undefined ? 'readonly' : 'readwrite').objectStore('ajustes');
+      const q = v === undefined ? st.get(k) : (v === null ? st.delete(k) : st.put(v, k));
+      q.onsuccess = () => ok(v === undefined ? q.result : true); q.onerror = () => ok(null);
+    }catch(e){ ok(null); }
+  });
+}
 function borrarCancion(id){ try{ tx('readwrite').delete(id); }catch(e){} }
 function leerTodas(){
   return new Promise(ok => { try{ const r = tx('readonly').getAll(); r.onsuccess = () => ok(r.result||[]); r.onerror = () => ok([]); }catch(e){ ok([]); } });
@@ -156,7 +195,8 @@ function leerTodas(){
 function estado(){
   return { app:'Reproductor de Música JAT', version:1, fecha:new Date().toISOString(),
     orden: lista.map(c => c.nombre),
-    etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra).map(c => [c.nombre, {titulo:c.titulo||'', artista:c.artista||'', album:c.album||'', letra:c.letra||'', letraSync:c.letraSync||''}])),
+    etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm).map(c => [c.nombre, {titulo:c.titulo||'', artista:c.artista||'', album:c.album||'', anio:c.anio||'', genero:c.genero||'', bpm:c.bpm||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
+    vista,
     clave: claveGuardada(), actual: lista[actual]?.nombre || null,
     posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst };
 }
@@ -175,10 +215,11 @@ function aplicarEstado(e, conPos){
   if(e.etiquetas) lista.forEach(c => {
     const t = e.etiquetas[c.nombre]; if(!t) return;
     let cambio = false;
-    for(const k of ['titulo','artista','album','letra','letraSync']) if(t[k] && !c[k]){ c[k] = t[k]; cambio = true; }
+    for(const k of ['titulo','artista','album','anio','genero','bpm','letra','letraSync']) if(t[k] && !c[k]){ c[k] = t[k]; cambio = true; }
     if(cambio) guardarCancion(c);
   });
   if(e.clave && !claveGuardada()) guardarClave(e.clave);
+  if(e.vista && e.vista.por) vista = {por: e.vista.por, grupo: e.vista.grupo ?? null};
   const i = lista.findIndex(c => c.nombre === e.actual);
   if(i >= 0){ cargar(i, false, conPos ? e.posicion : 0); }
   pintarLista();
@@ -241,17 +282,39 @@ function limpiarNombre(n){ return n.replace(/\.[^.]+$/,'').replace(/_/g,' '); }
 function titulo(c){ return c.titulo || limpiarNombre(c.nombre); }
 function detalle(c){ return [c.artista, c.album].filter(Boolean).join(' · '); }
 
-/* ---------- Leer etiquetas (título, artista, álbum, portada) ---------- */
+/* ---------- Obtener el audio de una canción ---------- */
+async function archivoDe(c){
+  if(c.blob) return c.blob;
+  if(!c.deCarpeta || !carpeta) throw new Error('sin carpeta');
+  let h = carpeta; const partes = c.ruta.split('/');
+  for(let i = 0; i < partes.length - 1; i++) h = await h.getDirectoryHandle(partes[i]);
+  const f = await (await h.getFileHandle(partes[partes.length - 1])).getFile();
+  c.blob = f; return f;
+}
+
+/* ---------- Leer etiquetas (título, artista, álbum, año, género, portada) ---------- */
+const GEN_ID3 = 'Blues,Classic Rock,Country,Dance,Disco,Funk,Grunge,Hip-Hop,Jazz,Metal,New Age,Oldies,Other,Pop,R&B,Rap,Reggae,Rock,Techno,Industrial,Alternative,Ska,Death Metal,Pranks,Soundtrack,Euro-Techno,Ambient,Trip-Hop,Vocal,Jazz+Funk,Fusion,Trance,Classical,Instrumental,Acid,House,Game,Sound Clip,Gospel,Noise,AlternRock,Bass,Soul,Punk,Space,Meditative,Instrumental Pop,Instrumental Rock,Ethnic,Gothic,Darkwave,Techno-Industrial,Electronic,Pop-Folk,Eurodance,Dream,Southern Rock,Comedy,Cult,Gangsta,Top 40,Christian Rap,Pop/Funk,Jungle,Native American,Cabaret,New Wave,Psychadelic,Rave,Showtunes,Trailer,Lo-Fi,Tribal,Acid Punk,Acid Jazz,Polka,Retro,Musical,Rock & Roll,Hard Rock'.split(',');
+function limpiarGenero(g){
+  g = String(g || '').trim(); if(!g) return '';
+  g = g.replace(/^\((\d+)\)\s*/, (m, n) => (GEN_ID3[+n] || '') + ' ').trim();
+  if(/^\d+$/.test(g)) g = GEN_ID3[+g] || '';
+  g = g.split(/[;\/\0]/)[0].trim();
+  return g ? g.charAt(0).toUpperCase() + g.slice(1) : '';
+}
 function leerEtiquetas(c){
-  return new Promise(ok => {
-    if(!window.jsmediatags || !c.blob){ c.leido = true; return ok(); }
+  return new Promise(async ok => {
+    let b; try{ b = await archivoDe(c); }catch(e){ return ok(); }
+    if(!window.jsmediatags){ c.leido = true; return ok(); }
     try{
-      jsmediatags.read(c.blob, {
+      jsmediatags.read(b, {
         onSuccess: t => {
           const g = t.tags || {};
           if(g.title) c.titulo = String(g.title).trim();
           if(g.artist) c.artista = String(g.artist).trim();
           if(g.album) c.album = String(g.album).trim();
+          const fecha = g.year || (g.TDRC && g.TDRC.data) || (g.TDOR && g.TDOR.data) || (g.TORY && g.TORY.data) || (g['©day'] && g['©day'].data) || '';
+          const m4 = String(fecha).match(/\d{4}/); if(m4) c.anio = m4[0];
+          if(g.genre && !c.genero) c.genero = limpiarGenero(g.genre);
           if(g.picture && g.picture.data){
             try{ c.portada = new Blob([new Uint8Array(g.picture.data)], {type: g.picture.format || 'image/jpeg'}); }catch(e){}
           }
@@ -263,9 +326,9 @@ function leerEtiquetas(c){
   });
 }
 async function leerPendientes(){
-  for(const c of lista){
+  for(const c of lista.slice()){
     if(c.leido) continue;
-    await leerEtiquetas(c); guardarCancion(c);
+    await leerEtiquetas(c); if(!c.leido) continue; guardarCancion(c);
     pintarLista();
     if(lista[actual] === c) mostrarActual();
   }
@@ -274,7 +337,8 @@ let urlPortada = null;
 function mostrarActual(){
   const c = lista[actual]; if(!c) return;
   $('titulo').textContent = titulo(c);
-  $('sub').textContent = (detalle(c) ? detalle(c) + ' — ' : '') + `Canción ${actual+1} de ${lista.length}`;
+  const v = visibles(), pv = v.indexOf(actual);
+  $('sub').textContent = (detalle(c) ? detalle(c) + ' — ' : '') + (pv >= 0 ? `Canción ${pv+1} de ${v.length}` : `Canción ${actual+1} de ${lista.length}`);
   if(urlPortada){ URL.revokeObjectURL(urlPortada); urlPortada = null; }
   const d = $('disco');
   if(c.portada){ urlPortada = URL.createObjectURL(c.portada); d.style.backgroundImage = `url(${urlPortada})`; d.classList.add('portada'); }
@@ -286,11 +350,21 @@ function mostrarActual(){
   }
 }
 
-function cargar(i, reproducir=true, desde=0){
+async function cargar(i, reproducir=true, desde=0){
   if(i < 0 || i >= lista.length) return;
   actual = i;
+  const c = lista[i];
+  let b;
+  try{ b = await archivoDe(c); }
+  catch(e){
+    mostrarActual(); pintarLista();
+    $('sub').textContent = c.deCarpeta ? '⚠ Toca "Conectar mi carpeta" arriba para escuchar' : '⚠ No se pudo abrir esta canción';
+    if(c.deCarpeta){ cargaPend = {i, desde}; pedirConexion(); }
+    return;
+  }
+  if(actual !== i) return;
   if(urlActual) URL.revokeObjectURL(urlActual);
-  urlActual = URL.createObjectURL(lista[i].blob);
+  urlActual = URL.createObjectURL(b);
   audio.src = urlActual;
   if(desde) audio.addEventListener('loadedmetadata', () => { audio.currentTime = desde; }, {once:true});
   mostrarActual();
@@ -298,18 +372,25 @@ function cargar(i, reproducir=true, desde=0){
   if(reproducir) audio.play().catch(()=>{});
   pintarLista(); guardarEstado();
 }
-function play(){ if(actual < 0 && lista.length) return cargar(0); audio.paused ? audio.play().catch(()=>{}) : audio.pause(); }
+function play(){
+  const v = visibles();
+  if((actual < 0 || !audio.src) && v.length) return cargar(actual >= 0 && v.includes(actual) ? actual : v[0]);
+  audio.paused ? audio.play().catch(()=>{}) : audio.pause();
+}
 function siguiente(auto=false){
-  if(!lista.length) return;
-  if(aleatorio && lista.length > 1){ let n; do{ n = Math.floor(Math.random()*lista.length); }while(n === actual); return cargar(n); }
-  if(actual + 1 < lista.length) return cargar(actual + 1);
-  if(repetir || !auto) return cargar(0);
+  const v = visibles(); if(!v.length) return;
+  if(aleatorio && v.length > 1){ let n; do{ n = v[Math.floor(Math.random()*v.length)]; }while(n === actual); return cargar(n); }
+  const p = v.indexOf(actual);
+  if(p >= 0 && p + 1 < v.length) return cargar(v[p + 1]);
+  if(p < 0) return cargar(v[0]);
+  if(repetir || !auto) return cargar(v[0]);
   audio.pause();
 }
 function anterior(){
-  if(!lista.length) return;
+  const v = visibles(); if(!v.length) return;
   if(audio.currentTime > 3){ audio.currentTime = 0; return; }
-  cargar(actual > 0 ? actual - 1 : lista.length - 1);
+  const p = v.indexOf(actual);
+  cargar(p > 0 ? v[p - 1] : v[v.length - 1]);
 }
 
 audio.addEventListener('play', () => { $('bPlay').textContent = '⏸'; $('disco').classList.add('gira'); });
@@ -342,22 +423,73 @@ if('mediaSession' in navigator){
 }
 
 /* ---------- Lista ---------- */
+/* ---------- Clasificación y vistas ---------- */
+let vista = {por: 'todas', grupo: null};
+function categoriaRitmo(bpm){ return !bpm ? '' : bpm < 95 ? 'Lento' : bpm <= 125 ? 'Moderado' : 'Rápido'; }
+function carpetaDe(c){ return c.ruta && c.ruta.includes('/') ? c.ruta.slice(0, c.ruta.lastIndexOf('/')) : (c.deCarpeta ? 'Carpeta principal' : 'Agregadas sueltas'); }
+function grupoDe(c, por){
+  switch(por){
+    case 'genero': return c.genero || 'Sin género';
+    case 'ritmo': return categoriaRitmo(c.bpm) || 'Sin analizar';
+    case 'artista': return c.artista || 'Artista desconocido';
+    case 'album': return c.album || 'Álbum desconocido';
+    case 'anio': return c.anio || 'Sin año';
+    case 'carpeta': return carpetaDe(c);
+  }
+  return '';
+}
+function visibles(){
+  const v = [];
+  lista.forEach((c, i) => { if(vista.por === 'todas' || vista.grupo === null || grupoDe(c, vista.por) === vista.grupo) v.push(i); });
+  return v;
+}
+function pintarChips(){
+  document.querySelectorAll('#porChips button').forEach(b => b.classList.toggle('on', b.dataset.p === vista.por));
+  const gc = $('grupoChips'); gc.innerHTML = '';
+  if(vista.por === 'todas'){ gc.style.display = 'none'; return; }
+  gc.style.display = '';
+  const cuenta = new Map();
+  lista.forEach(c => { const g = grupoDe(c, vista.por); cuenta.set(g, (cuenta.get(g) || 0) + 1); });
+  const orden = vista.por === 'ritmo' ? ['Lento','Moderado','Rápido','Sin analizar'] : null;
+  const grupos = [...cuenta.keys()].sort((a, b) => orden ? orden.indexOf(a) - orden.indexOf(b)
+    : (/^(Sin |Artista desc|Álbum desc)/.test(a) - /^(Sin |Artista desc|Álbum desc)/.test(b)) || a.localeCompare(b, 'es'));
+  if(vista.grupo !== null && !cuenta.has(vista.grupo)) vista.grupo = null;
+  const mk = (txt, g, n) => {
+    const b = document.createElement('button'); b.textContent = txt;
+    if(n !== undefined){ const k = document.createElement('b'); k.textContent = n; b.append(k); }
+    b.classList.toggle('on', vista.grupo === g);
+    b.onclick = () => { vista.grupo = g; pintarLista(); guardarEstado(); };
+    gc.append(b);
+  };
+  mk('Todas', null, lista.length);
+  grupos.forEach(g => mk((vista.por === 'ritmo' ? ({Lento:'🐢 ',Moderado:'🚶 ','Rápido':'🔥 '}[g] || '') : '') + g, g, cuenta.get(g)));
+}
+document.querySelectorAll('#porChips button').forEach(b => b.onclick = () => { vista = {por: b.dataset.p, grupo: null}; pintarLista(); guardarEstado(); });
+
 function pintarLista(){
+  pintarChips();
   const ul = $('lista'); ul.innerHTML = '';
-  if(!lista.length){ ul.innerHTML = '<div class="vacio">Tu lista está vacía</div>'; return; }
-  lista.forEach((c, i) => {
+  if(!lista.length){ ul.innerHTML = '<div class="vacio">Tu lista está vacía. Elige tu carpeta de música.</div>'; return; }
+  const v = visibles(), filtrado = v.length !== lista.length;
+  if(!v.length){ ul.innerHTML = '<div class="vacio">No hay canciones en este grupo</div>'; return; }
+  const frag = document.createDocumentFragment();
+  v.forEach((i, pos) => {
+    const c = lista[i];
     const li = document.createElement('li');
     if(i === actual) li.className = 'act';
     const s = document.createElement('span');
-    s.textContent = (i === actual ? '♪ ' : (i+1)+'. ') + titulo(c);
+    s.textContent = (i === actual ? '♪ ' : (pos+1)+'. ') + titulo(c);
     if(detalle(c)){ const sm = document.createElement('small'); sm.textContent = detalle(c); s.append(sm); }
+    const extra = [c.genero, c.bpm ? `🥁 ${categoriaRitmo(c.bpm)} (${c.bpm})` : ''].filter(Boolean).join(' · ');
+    if(extra){ const sm = document.createElement('small'); sm.textContent = extra; s.append(sm); }
     s.onclick = () => cargar(i);
-    const up = document.createElement('button'); up.textContent = '▲';
-    up.onclick = () => mover(i, -1);
+    li.append(s);
+    if(!filtrado){ const up = document.createElement('button'); up.textContent = '▲'; up.onclick = () => mover(i, -1); li.append(up); }
     const del = document.createElement('button'); del.textContent = '✕';
     del.onclick = () => quitar(i);
-    li.append(s, up, del); ul.append(li);
+    li.append(del); frag.append(li);
   });
+  ul.append(frag);
 }
 function mover(i, d){
   const j = i + d; if(j < 0) return;
@@ -367,7 +499,7 @@ function mover(i, d){
   pintarLista(); guardarEstado();
 }
 function quitar(i){
-  if(!confirm('¿Quitar "' + titulo(lista[i]) + '" de la lista?')) return;
+  if(!confirm('¿Quitar "' + titulo(lista[i]) + '" de la lista?' + (lista[i].deCarpeta ? '\n(Si sigue en tu carpeta, volverá a aparecer. Para quitarla del todo, bórrala de la carpeta.)' : ''))) return;
   const c = lista[i]; borrarCancion(c.id);
   const eraActual = i === actual;
   lista.splice(i, 1);
@@ -379,7 +511,7 @@ function quitar(i){
 $('archivos').addEventListener('change', e => {
   const nuevos = [...e.target.files];
   nuevos.forEach(f => {
-    if(lista.some(c => c.nombre === f.name)) return;
+    if(lista.some(c => c.nombre === f.name && !c.deCarpeta)) return;
     const c = { id: Date.now() + '_' + Math.random().toString(36).slice(2), nombre: f.name, blob: f };
     lista.push(c); guardarCancion(c);
   });
@@ -399,6 +531,199 @@ $('bLimpiar').onclick = () => {
 };
 
 function quitarPortada(){ const d = $('disco'); d.style.backgroundImage = ''; d.classList.remove('portada'); }
+
+/* ---------- Carpeta de música ---------- */
+const EXT_AUDIO = /\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|weba|webm|amr|3gp|wma)$/i;
+let carpeta = null, escaneando = false, cargaPend = null;
+const nuevoId = () => Date.now() + '_' + Math.random().toString(36).slice(2);
+async function listarCarpeta(dir, base = '', out = []){
+  for await (const [nombre, h] of dir.entries()){
+    if(nombre.startsWith('.')) continue;
+    if(h.kind === 'directory') await listarCarpeta(h, base + nombre + '/', out);
+    else if(EXT_AUDIO.test(nombre)) out.push(base + nombre);
+  }
+  return out;
+}
+function infoCarpeta(txt){ $('infoCarpeta').textContent = txt; }
+function aplicarRutas(rutas, conBlobs){
+  // conBlobs: Map ruta->File (modo sin acceso permanente); si no, se leen de la carpeta cuando hace falta
+  const set = new Set(rutas), existentes = new Map();
+  lista.forEach(c => { if(c.deCarpeta) existentes.set(c.ruta, c); });
+  let nuevas = 0, quitadas = 0;
+  rutas.forEach(ruta => {
+    if(existentes.has(ruta)){ if(conBlobs) existentes.get(ruta).blob = conBlobs.get(ruta); return; }
+    const nombre = ruta.split('/').pop();
+    const c = { id: nuevoId(), nombre, ruta, deCarpeta: true };
+    if(conBlobs){ c.blob = conBlobs.get(ruta); c.copia = true; }
+    lista.push(c); guardarCancion(c); nuevas++;
+  });
+  if(!conBlobs){
+    const cur = lista[actual];
+    lista = lista.filter(c => { if(c.deCarpeta && !set.has(c.ruta)){ borrarCancion(c.id); quitadas++; return false; } return true; });
+    actual = cur ? lista.indexOf(cur) : -1;
+  }
+  if(respaldoPend && nuevas) aplicarEstado(respaldoPend, false);
+  return {nuevas, quitadas};
+}
+async function escanearCarpeta(silencioso = false){
+  if(!carpeta || escaneando) return;
+  escaneando = true;
+  try{
+    if(!silencioso) infoCarpeta('📁 Revisando tu carpeta…');
+    const rutas = await listarCarpeta(carpeta);
+    const {nuevas, quitadas} = aplicarRutas(rutas);
+    const total = lista.filter(c => c.deCarpeta).length;
+    infoCarpeta(`📁 ${carpeta.name}: ${total} canciones` + (nuevas ? ` · ${nuevas} nuevas` : '') + (quitadas ? ` · ${quitadas} ya no están` : '') +
+      ` · revisada ${new Date().toLocaleTimeString('es-EC', {hour:'2-digit', minute:'2-digit'})}`);
+    if(nuevas || quitadas){ pintarLista(); guardarEstado(); leerPendientes(); }
+    $('aviso').style.display = 'none';
+    if(cargaPend && !audio.src){ const p = cargaPend; cargaPend = null; if(lista[p.i]) cargar(p.i, false, p.desde); }
+    else if(actual < 0 && lista.length) cargar(visibles()[0] ?? 0, false);
+  }catch(e){
+    infoCarpeta('⚠ No se pudo leer la carpeta. Toca "Elegir carpeta" otra vez.');
+  }
+  escaneando = false;
+}
+function pedirConexion(){
+  if(!carpeta) return;
+  $('avisoTxt').textContent = `Para escuchar y buscar canciones nuevas en "${carpeta.name}", el celular pide permiso otra vez.`;
+  $('aviso').style.display = 'block';
+}
+$('bConectar').onclick = async () => {
+  try{
+    if(await carpeta.requestPermission({mode: 'read'}) === 'granted'){ $('aviso').style.display = 'none'; await escanearCarpeta(); }
+  }catch(e){}
+};
+$('bCarpeta').onclick = async () => {
+  if('showDirectoryPicker' in window){
+    try{
+      const h = await window.showDirectoryPicker({id: 'musica', mode: 'read'});
+      if(carpeta && !(await carpeta.isSameEntry(h))){
+        // carpeta distinta: se quitan las canciones de la carpeta anterior
+        lista.filter(c => c.deCarpeta).forEach(c => borrarCancion(c.id));
+        lista = lista.filter(c => !c.deCarpeta); actual = -1;
+      }
+      carpeta = h; await ajuste('carpeta', h);
+      await escanearCarpeta(); pintarLista();
+    }catch(e){ if(e.name !== 'AbortError') infoCarpeta('⚠ No se pudo abrir la carpeta.'); }
+  } else $('dirInput').click();
+};
+// Respaldo para celulares sin acceso permanente a carpetas: se copia la música elegida
+$('dirInput').addEventListener('change', e => {
+  const files = [...e.target.files].filter(f => EXT_AUDIO.test(f.name)); e.target.value = '';
+  if(!files.length){ infoCarpeta('⚠ No encontré música en esa carpeta.'); return; }
+  const mapa = new Map(files.map(f => [f.webkitRelativePath.split('/').slice(1).join('/') || f.name, f]));
+  const {nuevas} = aplicarRutas([...mapa.keys()], mapa);
+  lista.forEach(c => { if(c.copia) guardarCancionCopia(c); });
+  infoCarpeta(`📁 ${files.length} canciones · ${nuevas} nuevas. (Este navegador no permite revisar la carpeta solo: vuelve a elegirla cuando agregues música.)`);
+  pintarLista(); guardarEstado(); leerPendientes();
+  if(actual < 0 && lista.length) cargar(0, false);
+});
+function guardarCancionCopia(c){ try{ tx('readwrite').put(Object.assign({}, c, {deCarpeta: true})); }catch(e){} }
+async function iniciarCarpeta(){
+  carpeta = await ajuste('carpeta');
+  if(!carpeta || !carpeta.queryPermission) return;
+  let p = 'prompt'; try{ p = await carpeta.queryPermission({mode: 'read'}); }catch(e){}
+  if(p === 'granted') await escanearCarpeta(true);
+  else { infoCarpeta(`📁 ${carpeta.name}`); pedirConexion(); }
+  // Revisa sola la carpeta cada minuto y cada vez que vuelves a la app
+  setInterval(() => { if(document.visibilityState === 'visible') revisarSiPermiso(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') revisarSiPermiso(); });
+}
+async function revisarSiPermiso(){
+  try{ if(carpeta && await carpeta.queryPermission({mode: 'read'}) === 'granted') escanearCarpeta(true); }catch(e){}
+}
+
+/* ---------- Clasificar: género (etiqueta o MusicBrainz) y ritmo (BPM) ---------- */
+const generoArtista = new Map();
+async function mbJSON(url){
+  for(let i = 0; i < 3; i++){
+    const r = await fetch('https://musicbrainz.org/ws/2/' + url + (url.includes('?') ? '&' : '?') + 'fmt=json');
+    if(r.status === 503){ await espera(1500); continue; }
+    if(!r.ok) return null;
+    return r.json();
+  }
+  return null;
+}
+async function generoMB(artista){
+  const k = artista.toLowerCase();
+  if(generoArtista.has(k)) return generoArtista.get(k);
+  let g = '';
+  try{
+    const busc = await mbJSON('artist?limit=3&query=' + encodeURIComponent('artist:"' + artista.replace(/"/g, '') + '"'));
+    await espera(1100);
+    const a = busc && (busc.artists || []).find(x => x.score >= 85);
+    if(a){
+      const det = await mbJSON('artist/' + a.id + '?inc=genres');
+      await espera(1100);
+      const gs = (det && det.genres || []).sort((x, y) => y.count - x.count);
+      if(gs.length) g = gs[0].name;
+      else if(a.tags && a.tags.length) g = a.tags.sort((x, y) => y.count - x.count)[0].name;
+    }
+  }catch(e){}
+  g = limpiarGenero(g);
+  generoArtista.set(k, g);
+  return g;
+}
+// Ritmo: se analiza un pedazo de ~30 s del medio de la canción buscando los golpes del bajo/batería
+async function detectarBPM(c){
+  const b = await archivoDe(c);
+  const dur = await duracionDe(b);
+  let buf = null;
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  try{
+    if(dur > 60 && /mp3|mpeg|ogg|opus|wav|flac/i.test(b.type + ' ' + c.nombre)){
+      const ini = Math.floor(b.size * 0.35), fin = Math.min(b.size, ini + Math.ceil(b.size * 32 / dur));
+      try{ buf = await ctx.decodeAudioData(await b.slice(ini, fin).arrayBuffer()); }catch(e){ buf = null; }
+    }
+    if(!buf) buf = await ctx.decodeAudioData(await b.arrayBuffer());
+  } finally { try{ ctx.close(); }catch(e){} }
+  const sr = buf.sampleRate, largo = Math.min(buf.length, sr * 30);
+  const off = new OfflineAudioContext(1, largo, sr);
+  const src = off.createBufferSource(); src.buffer = buf;
+  const lp = off.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 150; lp.Q.value = 1;
+  src.connect(lp); lp.connect(off.destination); src.start(0, buf.duration > 30 && buf.length > largo ? (buf.duration - 30) / 2 : 0);
+  const datos = (await off.startRendering()).getChannelData(0);
+  // energía en ventanas de 10 ms
+  const paso = Math.floor(sr / 100), env = [];
+  for(let i = 0; i + paso < datos.length; i += paso){ let e = 0; for(let j = i; j < i + paso; j++) e += datos[j] * datos[j]; env.push(e); }
+  // aumentos de energía (golpes)
+  const on = env.map((e, i) => i ? Math.max(0, e - env[i - 1]) : 0);
+  // autocorrelación entre 60 y 190 BPM
+  let mejor = 0, mejorLag = 0;
+  for(let lag = Math.round(6000 / 190); lag <= Math.round(6000 / 60); lag++){
+    let s = 0; for(let i = lag; i < on.length; i++) s += on[i] * on[i - lag];
+    s *= 1 + 0.15 * Math.exp(-Math.pow((6000 / lag - 115) / 40, 2)); // leve preferencia por tempos comunes
+    if(s > mejor){ mejor = s; mejorLag = lag; }
+  }
+  if(!mejorLag) return 0;
+  let bpm = 6000 / mejorLag;
+  while(bpm < 70) bpm *= 2; while(bpm > 180) bpm /= 2;
+  return Math.round(bpm);
+}
+let clasificando = false;
+$('bClasificar').onclick = async () => {
+  if(clasificando) return;
+  if(!lista.length){ $('estadoClas').textContent = 'Primero elige tu carpeta de música.'; return; }
+  clasificando = true; $('bClasificar').disabled = true;
+  const pend = lista.filter(c => !c.genero || !c.bpm);
+  let n = 0;
+  for(const c of pend){
+    n++;
+    $('estadoClas').textContent = `🏷 Clasificando ${n} de ${pend.length}: ${titulo(c)}…`;
+    try{
+      if(!c.leido) await leerEtiquetas(c);
+      if(!c.genero && c.artista) c.genero = await generoMB(c.artista);
+      if(!c.bpm) c.bpm = await detectarBPM(c);
+      guardarCancion(c);
+      if(n % 5 === 0) pintarLista();
+    }catch(e){}
+  }
+  pintarLista(); guardarEstado();
+  const sinG = lista.filter(c => !c.genero).length;
+  $('estadoClas').textContent = `✔ Listo. ${lista.length - sinG} con género` + (sinG ? ` · ${sinG} sin género (usa 🔍 Reconocer para saber el artista y vuelve a clasificar)` : '') + '.';
+  clasificando = false; $('bClasificar').disabled = false;
+};
 
 /* ---------- Respaldo en archivo ---------- */
 $('bResp').onclick = () => {
@@ -494,8 +819,9 @@ async function reconocerTodas(){
     const c = pend[i];
     $('estadoRec').textContent = `🔍 Escuchando ${i+1} de ${pend.length}: ${titulo(c)}…`;
     try{
-      const dur = await duracionDe(c.blob);
-      const fp = await huella(c.blob, dur);
+      const b = await archivoDe(c);
+      const dur = await duracionDe(b);
+      const fp = await huella(b, dur);
       const d = await acoustid(clave, fp, dur);
       if(d.status !== 'ok'){
         const msg = (d.error && d.error.message) || 'error';
@@ -504,7 +830,7 @@ async function reconocerTodas(){
       }
       const m = mejorResultado(d);
       if(m){
-        c.titulo = m.titulo; c.artista = m.artista; c.album = m.album;
+        c.titulo = m.titulo; c.artista = m.artista; c.album = m.album; c.genero = '';
         if(!c.portada){ const p = await bajarPortada(m.rgid); if(p) c.portada = p; }
         c.letra = ''; c.letraSync = ''; c.letraNo = false;
         guardarCancion(c); ok++;
@@ -609,7 +935,7 @@ async function cargarLetra(){
   if(!c.titulo && !c.artista){ /* sin etiquetas: busca por el nombre del archivo */ }
   textoFlot('Buscando letra…'); pidiendoPara = c;
   try{
-    const dur = Math.round(audio.duration || await duracionDe(c.blob) || 0);
+    const dur = Math.round(audio.duration || await duracionDe(await archivoDe(c)) || 0);
     let d = null;
     if(c.titulo && c.artista){
       const q = new URLSearchParams({track_name: c.titulo, artist_name: c.artista});
@@ -643,6 +969,7 @@ async function cargarLetra(){
   if(e){ respaldoPend = e; aplicarEstado(e, true); }
   $('clave').value = claveGuardada();
   pintarLista();
+  await iniciarCarpeta();
   leerPendientes();
 })();
 </script>
