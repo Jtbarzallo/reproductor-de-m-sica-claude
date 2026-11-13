@@ -14,6 +14,8 @@
   .disco{width:150px;height:150px;margin:6px auto 14px;border-radius:50%;
     background:radial-gradient(circle,#0f1220 14%,var(--acc) 15%,#2c7a7b 60%,#1a1f35 61%);}
   .disco.gira{animation:g 4s linear infinite}
+  .disco.portada{border-radius:16px;background-size:cover;background-position:center;animation:none}
+  li small{display:block;color:var(--mut);font-size:14px;font-weight:400}
   @keyframes g{to{transform:rotate(360deg)}}
   #titulo{font-size:20px;font-weight:700;text-align:center;word-break:break-word;min-height:26px}
   #sub{font-size:15px;color:var(--mut);text-align:center;margin-top:4px}
@@ -82,6 +84,7 @@
   </div>
 </div>
 
+<script src="jsmediatags.min.js"></script>
 <audio id="audio" preload="metadata"></audio>
 
 <script>
@@ -111,7 +114,8 @@ function leerTodas(){
 /* ---------- Estado (orden, posición, volumen) ---------- */
 function estado(){
   return { app:'Reproductor de Música JAT', version:1, fecha:new Date().toISOString(),
-    orden: lista.map(c => c.nombre), actual: lista[actual]?.nombre || null,
+    orden: lista.map(c => c.nombre),
+    etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album).map(c => [c.nombre, {titulo:c.titulo||'', artista:c.artista||'', album:c.album||''}])), actual: lista[actual]?.nombre || null,
     posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir };
 }
 function guardarEstado(){ try{ localStorage.setItem('reproductorJAT_estado', JSON.stringify(estado())); }catch(e){} }
@@ -133,6 +137,53 @@ function aplicarEstado(e, conPos){
 /* ---------- Reproducción ---------- */
 function fmt(s){ if(!isFinite(s)) return '0:00'; s = Math.floor(s); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
 function limpiarNombre(n){ return n.replace(/\.[^.]+$/,'').replace(/_/g,' '); }
+function titulo(c){ return c.titulo || limpiarNombre(c.nombre); }
+function detalle(c){ return [c.artista, c.album].filter(Boolean).join(' · '); }
+
+/* ---------- Leer etiquetas (título, artista, álbum, portada) ---------- */
+function leerEtiquetas(c){
+  return new Promise(ok => {
+    if(!window.jsmediatags || !c.blob){ c.leido = true; return ok(); }
+    try{
+      jsmediatags.read(c.blob, {
+        onSuccess: t => {
+          const g = t.tags || {};
+          if(g.title) c.titulo = String(g.title).trim();
+          if(g.artist) c.artista = String(g.artist).trim();
+          if(g.album) c.album = String(g.album).trim();
+          if(g.picture && g.picture.data){
+            try{ c.portada = new Blob([new Uint8Array(g.picture.data)], {type: g.picture.format || 'image/jpeg'}); }catch(e){}
+          }
+          c.leido = true; ok();
+        },
+        onError: () => { c.leido = true; ok(); }
+      });
+    }catch(e){ c.leido = true; ok(); }
+  });
+}
+async function leerPendientes(){
+  for(const c of lista){
+    if(c.leido) continue;
+    await leerEtiquetas(c); guardarCancion(c);
+    pintarLista();
+    if(lista[actual] === c) mostrarActual();
+  }
+}
+let urlPortada = null;
+function mostrarActual(){
+  const c = lista[actual]; if(!c) return;
+  $('titulo').textContent = titulo(c);
+  $('sub').textContent = (detalle(c) ? detalle(c) + ' — ' : '') + `Canción ${actual+1} de ${lista.length}`;
+  if(urlPortada){ URL.revokeObjectURL(urlPortada); urlPortada = null; }
+  const d = $('disco');
+  if(c.portada){ urlPortada = URL.createObjectURL(c.portada); d.style.backgroundImage = `url(${urlPortada})`; d.classList.add('portada'); }
+  else { d.style.backgroundImage = ''; d.classList.remove('portada'); }
+  if('mediaSession' in navigator){
+    const m = {title: titulo(c), artist: c.artista || 'Reproductor JAT', album: c.album || ''};
+    if(urlPortada) m.artwork = [{src: urlPortada, sizes:'512x512', type: c.portada.type}];
+    try{ navigator.mediaSession.metadata = new MediaMetadata(m); }catch(e){}
+  }
+}
 
 function cargar(i, reproducir=true, desde=0){
   if(i < 0 || i >= lista.length) return;
@@ -141,11 +192,7 @@ function cargar(i, reproducir=true, desde=0){
   urlActual = URL.createObjectURL(lista[i].blob);
   audio.src = urlActual;
   if(desde) audio.addEventListener('loadedmetadata', () => { audio.currentTime = desde; }, {once:true});
-  $('titulo').textContent = limpiarNombre(lista[i].nombre);
-  $('sub').textContent = `Canción ${i+1} de ${lista.length}`;
-  if('mediaSession' in navigator){
-    navigator.mediaSession.metadata = new MediaMetadata({title: limpiarNombre(lista[i].nombre), artist:'Reproductor JAT'});
-  }
+  mostrarActual();
   if(reproducir) audio.play().catch(()=>{});
   pintarLista(); guardarEstado();
 }
@@ -200,7 +247,8 @@ function pintarLista(){
     const li = document.createElement('li');
     if(i === actual) li.className = 'act';
     const s = document.createElement('span');
-    s.textContent = (i === actual ? '♪ ' : (i+1)+'. ') + limpiarNombre(c.nombre);
+    s.textContent = (i === actual ? '♪ ' : (i+1)+'. ') + titulo(c);
+    if(detalle(c)){ const sm = document.createElement('small'); sm.textContent = detalle(c); s.append(sm); }
     s.onclick = () => cargar(i);
     const up = document.createElement('button'); up.textContent = '▲';
     up.onclick = () => mover(i, -1);
@@ -217,11 +265,11 @@ function mover(i, d){
   pintarLista(); guardarEstado();
 }
 function quitar(i){
-  if(!confirm('¿Quitar "' + limpiarNombre(lista[i].nombre) + '" de la lista?')) return;
+  if(!confirm('¿Quitar "' + titulo(lista[i]) + '" de la lista?')) return;
   const c = lista[i]; borrarCancion(c.id);
   const eraActual = i === actual;
   lista.splice(i, 1);
-  if(eraActual){ audio.pause(); audio.removeAttribute('src'); actual = -1; $('titulo').textContent = 'Sin canción'; $('sub').textContent = ''; }
+  if(eraActual){ audio.pause(); audio.removeAttribute('src'); actual = -1; quitarPortada(); $('titulo').textContent = 'Sin canción'; $('sub').textContent = ''; }
   else if(i < actual) actual--;
   pintarLista(); guardarEstado();
 }
@@ -237,15 +285,18 @@ $('archivos').addEventListener('change', e => {
   if(respaldoPend){ aplicarEstado(respaldoPend, true); }
   pintarLista(); guardarEstado();
   if(actual < 0 && lista.length) cargar(0, false);
+  leerPendientes();
 });
 
 $('bLimpiar').onclick = () => {
   if(!lista.length || !confirm('¿Vaciar toda la lista? Se quitarán todas las canciones de la app.')) return;
   lista.forEach(c => borrarCancion(c.id));
-  lista = []; actual = -1; audio.pause(); audio.removeAttribute('src');
+  lista = []; actual = -1; audio.pause(); audio.removeAttribute('src'); quitarPortada();
   $('titulo').textContent = 'Sin canción'; $('sub').textContent = 'Agrega canciones para empezar';
   pintarLista(); guardarEstado();
 };
+
+function quitarPortada(){ const d = $('disco'); d.style.backgroundImage = ''; d.classList.remove('portada'); }
 
 /* ---------- Respaldo en archivo ---------- */
 $('bResp').onclick = () => {
@@ -274,6 +325,7 @@ $('fResp').addEventListener('change', async e => {
   const e = leerEstado();
   if(e){ respaldoPend = e; aplicarEstado(e, true); }
   pintarLista();
+  leerPendientes();
 })();
 </script>
 </body>
