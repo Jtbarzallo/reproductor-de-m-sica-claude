@@ -49,6 +49,104 @@ class PlaybackService : MediaLibraryService() {
         if (k == "saltarSilencios") player.skipSilenceEnabled = Respaldo.saltarSilencios(this)
     }
 
+    // ------------------------------------------------------------------ fundido entre canciones
+    // Cuando falta poco para que acabe la canción, un segundo reproductor ("ayudante") empieza la
+    // siguiente en silencio. Durante el fundido la que termina BAJA poco a poco y la nueva SUBE poco a
+    // poco hasta igualarse. Al final, el reproductor principal pasa a la canción nueva justo en el punto
+    // donde va el ayudante, y el ayudante se apaga sin que se note.
+    private lateinit var ayudante: ExoPlayer
+    private enum class Fase { NADA, PREPARANDO, FUNDIENDO, TRASPASO }
+    private var fase = Fase.NADA
+    private var indiceNuevo = -1
+    private var inicioFundido = 0L
+    private var largoFundido = 0L
+    private var inicioTraspaso = 0L
+    private val PASO = 50L
+
+    private val vigilante = object : Runnable {
+        override fun run() {
+            try { pasoFundido() } catch (e: Exception) { cancelarFundido() }
+            main.postDelayed(this, if (fase == Fase.NADA) 250L else PASO)
+        }
+    }
+
+    private fun pasoFundido() {
+        val seg = Respaldo.fundido(this)
+        when (fase) {
+            Fase.NADA -> {
+                if (seg <= 0 || !player.isPlaying || player.repeatMode == Player.REPEAT_MODE_ONE) return
+                if (!player.hasNextMediaItem()) return
+                val dur = player.duration
+                if (dur == C.TIME_UNSET || dur < 20_000) return
+                val falta = dur - player.currentPosition
+                val quiero = seg * 1000L
+                if (falta > quiero + 1500 || falta < 1500) return
+                indiceNuevo = player.nextMediaItemIndex
+                if (indiceNuevo == C.INDEX_UNSET) return
+                ayudante.setMediaItem(player.getMediaItemAt(indiceNuevo))
+                ayudante.volume = 0f
+                ayudante.skipSilenceEnabled = player.skipSilenceEnabled
+                ayudante.prepare()
+                ayudante.playWhenReady = true
+                fase = Fase.PREPARANDO
+            }
+            Fase.PREPARANDO -> {
+                if (!player.isPlaying) { cancelarFundido(); return }
+                if (ayudante.isPlaying) {
+                    // el fundido dura lo elegido, pero termina antes de que se acabe la canción
+                    val falta = player.duration - player.currentPosition
+                    largoFundido = minOf(seg * 1000L, falta - 400).coerceAtLeast(1000L)
+                    inicioFundido = System.currentTimeMillis()
+                    fase = Fase.FUNDIENDO
+                } else if (player.duration - player.currentPosition < 600) {
+                    cancelarFundido()   // la siguiente no alcanzó a cargar: pasa normal
+                }
+            }
+            Fase.FUNDIENDO -> {
+                if (!player.isPlaying) { cancelarFundido(); return }
+                val x = ((System.currentTimeMillis() - inicioFundido).toFloat() / largoFundido).coerceIn(0f, 1f)
+                // curva de "potencia igual": el volumen total se mantiene parejo, sin bajón en el medio
+                player.volume = Math.cos(x * Math.PI / 2).toFloat()
+                ayudante.volume = Math.sin(x * Math.PI / 2).toFloat()
+                if (x >= 1f) traspasar()
+            }
+            Fase.TRASPASO -> {
+                // el principal ya está en la canción nueva (en silencio); cuando suena, se cambia en 0,4 s
+                if (player.isPlaying && player.playbackState == Player.STATE_READY) {
+                    val x = ((System.currentTimeMillis() - inicioTraspaso).toFloat() / 400f).coerceIn(0f, 1f)
+                    player.volume = x
+                    ayudante.volume = 1f - x
+                    if (x >= 1f) terminarFundido()
+                } else {
+                    inicioTraspaso = System.currentTimeMillis()
+                    if (!player.playWhenReady) cancelarFundido()
+                }
+            }
+        }
+    }
+
+    private fun traspasar() {
+        fase = Fase.TRASPASO
+        player.volume = 0f
+        ayudante.volume = 1f
+        player.seekTo(indiceNuevo, ayudante.currentPosition + 150)
+        inicioTraspaso = System.currentTimeMillis()
+    }
+
+    private fun terminarFundido() {
+        fase = Fase.NADA
+        player.volume = 1f
+        try { ayudante.stop(); ayudante.clearMediaItems() } catch (e: Exception) {}
+        ayudante.volume = 0f
+    }
+
+    private fun cancelarFundido() {
+        if (fase == Fase.NADA) return
+        fase = Fase.NADA
+        player.volume = 1f
+        try { ayudante.stop(); ayudante.clearMediaItems() } catch (e: Exception) {}
+    }
+
     // Si aparece música nueva en el celular, el menú se actualiza solo
     private val observador = object : ContentObserver(main) {
         override fun onChange(selfChange: Boolean) {
@@ -75,9 +173,24 @@ class PlaybackService : MediaLibraryService() {
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
         player.skipSilenceEnabled = Respaldo.saltarSilencios(this)
+        // segundo reproductor solo para el fundido (no pide el audio del carro, va mezclado con el principal)
+        ayudante = ExoPlayer.Builder(this)
+            .setAudioAttributes(
+                AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
+                false
+            )
+            .setWakeMode(C.WAKE_MODE_LOCAL)
+            .build()
+        ayudante.volume = 0f
+        main.post(vigilante)
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 mediaItem?.let { Respaldo.guardarUltima(this@PlaybackService, it.mediaId, 0) }
+                // si cambia de canción por otra razón (botón siguiente, elegir otra), se corta el fundido
+                if (fase == Fase.FUNDIENDO || fase == Fase.PREPARANDO) {
+                    if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && player.currentMediaItemIndex == indiceNuevo) traspasar()
+                    else cancelarFundido()
+                }
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (!isPlaying) guardarPosicion()
@@ -140,6 +253,8 @@ class PlaybackService : MediaLibraryService() {
         guardarPosicion()
         try { contentResolver.unregisterContentObserver(observador) } catch (e: Exception) {}
         getSharedPreferences("reproductor", MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(prefsListener)
+        main.removeCallbacks(vigilante)
+        try { ayudante.release() } catch (e: Exception) {}
         sesion?.run {
             player.release()
             release()

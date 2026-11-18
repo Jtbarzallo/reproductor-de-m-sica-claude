@@ -28,6 +28,13 @@ object Respaldo {
         guardarPublico(ctx)
     }
 
+    /** Segundos del fundido entre canciones (0 = apagado). */
+    fun fundido(ctx: Context) = prefs(ctx).getInt("fundido", 8)
+    fun setFundido(ctx: Context, seg: Int) {
+        prefs(ctx).edit().putInt("fundido", seg).apply()
+        guardarPublico(ctx)
+    }
+
     fun guardarUltima(ctx: Context, mediaId: String, posMs: Long) {
         prefs(ctx).edit().putString("ultimaId", mediaId).putLong("ultimaPos", posMs).apply()
     }
@@ -52,7 +59,8 @@ object Respaldo {
         while (keys.hasNext()) { val k = keys.next(); previo.put(k, etiquetas.get(k)) }
         File(ctx.filesDir, ARCHIVO_WEB).writeText(JSONObject().put("etiquetas", previo).toString())
         json.optJSONObject("ajustesAndroid")?.let {
-            prefs(ctx).edit().putBoolean("saltarSilencios", it.optBoolean("saltarSilencios", saltarSilencios(ctx))).apply()
+            prefs(ctx).edit().putBoolean("saltarSilencios", it.optBoolean("saltarSilencios", saltarSilencios(ctx)))
+                .putInt("fundido", it.optInt("fundido", fundido(ctx))).apply()
         }
         Biblioteca.sucia = true
         guardarPublico(ctx)
@@ -123,7 +131,7 @@ object Respaldo {
         .put("version", 1)
         .put("fecha", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date()))
         .put("etiquetas", etiquetasWeb(ctx))
-        .put("ajustesAndroid", JSONObject().put("saltarSilencios", saltarSilencios(ctx)))
+        .put("ajustesAndroid", JSONObject().put("saltarSilencios", saltarSilencios(ctx)).put("fundido", fundido(ctx)))
         .toString(2)
 
     fun exportar(ctx: Context, uri: Uri) {

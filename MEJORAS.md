@@ -10,8 +10,9 @@
 
 - [x] Modo DJ (18 nov): fundido cruzado — la canción que termina baja poco a poco mientras la nueva sube, durante toda la mezcla (4, 8 o 12 s)
 
+- [x] Fundido entre canciones también en el carro / Android Auto (18 nov): la que termina baja poco a poco y la nueva sube hasta igualarse; se elige en Ajustes (Apagado, 4, 8 o 12 s; por defecto 8 s) y va en el respaldo
+
 ## Pendientes / ideas
-- [ ] Mezcla DJ también cuando se escucha por Android Auto (ahora Android Auto toca una tras otra)
 - [ ] Entrar en el inicio de un compás/frase (no solo en un golpe)
 - [ ] Mezclar también canciones de velocidades muy distintas con un efecto de transición (eco/filtro)
 - [ ] Ecualizador y estéreo también en Android Auto

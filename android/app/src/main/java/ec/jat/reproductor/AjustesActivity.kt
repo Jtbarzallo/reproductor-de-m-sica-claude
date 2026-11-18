@@ -17,6 +17,8 @@ import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
@@ -178,6 +180,17 @@ class AjustesActivity : Activity() {
             setPadding(0, dp(8), 0, dp(8))
             setOnCheckedChangeListener { _, v -> Respaldo.setSaltarSilencios(this@AjustesActivity, v) }
         })
+        a.addView(texto("Fundido entre canciones: la que termina baja poco a poco y la que empieza sube poco a poco", 15f, TEXTO))
+        val opciones = listOf(0 to "Apagado", 4 to "4 s", 8 to "8 s", 12 to "12 s")
+        val grupo = RadioGroup(this).apply { orientation = RadioGroup.HORIZONTAL; setPadding(0, dp(4), 0, dp(8)) }
+        opciones.forEachIndexed { k, (seg, nombre) ->
+            grupo.addView(RadioButton(this).apply {
+                id = 500 + k; text = nombre; setTextColor(TEXTO); textSize = 15f
+                isChecked = Respaldo.fundido(this@AjustesActivity) == seg
+            })
+        }
+        grupo.setOnCheckedChangeListener { _, id -> Respaldo.setFundido(this@AjustesActivity, opciones[id - 500].first) }
+        a.addView(grupo)
         a.addView(boton("💾 Guardar respaldo", secundario = true) {
             startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE); type = "application/json"

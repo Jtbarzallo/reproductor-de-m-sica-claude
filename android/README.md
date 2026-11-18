@@ -8,6 +8,7 @@ Cada vez que se sube un cambio a `android/`, GitHub compila la app sola y actual
 - Lee toda la música del celular; las canciones nuevas aparecen solas.
 - En el carro (Android Auto): pestañas **Todas · Géneros · Ritmo · Más** (carpetas, artistas, álbumes, años), aleatorio, repetir, búsqueda y voz ("Ok Google, pon salsa en Reproductor JAT").
 - Sigue donde te quedaste al subir al carro.
+- Fundido entre canciones en el carro: la que termina baja poco a poco y la que empieza sube hasta igualarse (Ajustes: Apagado, 4, 8 o 12 s).
 - Saltar silencios.
 - Importa el respaldo del reproductor web para tener géneros, ritmo y títulos corregidos.
 - Respaldo: botón 💾 y copia automática en `Descargas/ReproductorJAT/respaldo_reproductor_android.json`.
