@@ -843,24 +843,13 @@ async function mezclarA(i, seg, auto = false){
     t0 = ahora() + 0.05;
   }
 
-  if(sync && gBajo){
-    // Mezcla de DJ: la nueva entra sin bajos; a la mitad se pasan los bajos; luego se va la vieja
-    const mitad = largo / 2, cambio = Math.min(0.6, sync.Pv);
-    gBajo[kN].gain.setValueAtTime(BAJO_FUERA, ahora());
-    gDeck[kN].gain.setValueCurveAtTime(curvaGain(0, kNivel, 'sube'), t0, largo * 0.45);
-    gBajo[kN].gain.setValueAtTime(BAJO_FUERA, t0 + mitad - cambio);
-    gBajo[kN].gain.linearRampToValueAtTime(0, t0 + mitad);
-    gBajo[kV].gain.setValueAtTime(gBajo[kV].gain.value, t0 + mitad - cambio);
-    gBajo[kV].gain.linearRampToValueAtTime(BAJO_FUERA, t0 + mitad);
-    gDeck[kV].gain.setValueCurveAtTime(curvaGain(gDeck[kV].gain.value || 1, 0, 'baja'), t0 + largo * 0.55, largo * 0.45);
-  } else {
-    // Sin golpe claro: mezcla corta de "potencia igual"
-    largo = auto ? Math.min(seg, 5) : seg;
-    if(gBajo) gBajo[kN].gain.setValueAtTime(0, ahora());
-    const sube = curva(0, 1).map(v => v * kNivel);
-    gDeck[kN].gain.setValueCurveAtTime(sube, t0, largo);
-    gDeck[kV].gain.setValueCurveAtTime(curva(1, 0), t0, largo);
-  }
+  // Fundido cruzado: durante toda la mezcla la que termina BAJA poco a poco
+  // y la que empieza SUBE poco a poco, las dos al mismo tiempo (si se pudo, con los golpes unidos)
+  if(!sync) largo = seg;
+  if(gBajo){ gBajo[kN].gain.setValueAtTime(0, ahora()); gBajo[kV].gain.setValueAtTime(0, ahora()); }
+  const vIni = gDeck[kV].gain.value || 1;
+  gDeck[kN].gain.setValueCurveAtTime(curva(0, 1).map(v => v * kNivel), t0, largo);
+  gDeck[kV].gain.setValueCurveAtTime(curva(1, 0).map(v => v * vIni), t0, largo);
   // desde ya, la pantalla muestra la canción nueva
   audio = nuevo; actual = i; proxima = null;
   setTimeout(nuevaCancionEstereo, (t0 - ahora() + largo / 2) * 1000);
