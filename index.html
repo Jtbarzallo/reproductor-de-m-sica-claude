@@ -67,6 +67,25 @@
   #flotTxt p{margin:0 0 10px;color:var(--mut);transition:color .2s,transform .2s}
   #flotTxt p.act{color:var(--txt);font-weight:700;transform:scale(1.03);transform-origin:left}
   #flotTxt.plano p{color:var(--txt)}
+  #mesa{display:none;margin-top:10px}
+  #mesa.ver{display:block}
+  .platos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .plato{background:#0f1220;border-radius:14px;padding:10px;min-width:0;border-top:3px solid #58a6ff}
+  .plato[data-k="1"]{border-top-color:#f78166}
+  .plato h4{margin:0 0 4px;font-size:15px;color:#58a6ff}
+  .plato[data-k="1"] h4{color:#f78166}
+  .plato[data-k="1"] input[type=range]{accent-color:#f78166}
+  .plato[data-k="0"] input[type=range]{accent-color:#58a6ff}
+  .pTit{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pInfo{font-size:12px;color:var(--mut);min-height:16px}
+  .plato select{width:100%;margin:6px 0;padding:6px;border-radius:10px;background:var(--sel);color:var(--txt);border:0;font-size:13px}
+  .pBtns{display:flex;gap:4px}
+  .pBtns button{flex:1;font-size:15px;padding:8px 2px}
+  .plato label{display:block;font-size:12px;color:var(--mut);margin-top:4px}
+  .plato label b{color:var(--txt);font-weight:400}
+  .xf-lab{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px}
+  .xf-lab button{font-size:13px;padding:6px 12px}
+  #mesaAviso{font-size:13px;color:#ffd98a;min-height:16px;margin-top:6px}
   #flotPie{font-size:11px;color:var(--mut);padding:4px 10px;border-top:1px solid #33406e}
 </style>
 </head>
@@ -115,6 +134,35 @@
       <button data-s="4">Mezcla 4 s</button>
       <button data-s="8">8 s</button>
       <button data-s="12">12 s</button>
+    </div>
+    <button id="bMesa" style="width:100%;margin-top:8px;font-size:15px;padding:10px">🎛 Mesa DJ — mezclar a mano</button>
+    <div id="mesa">
+      <div class="platos">
+        <div class="plato" data-k="0"><h4>Plato A</h4>
+          <div class="pTit">—</div><div class="pInfo"></div>
+          <select class="pSel"><option value="">Cargar canción…</option></select>
+          <div class="pBtns"><button class="pPlay">▶</button><button class="pCue" title="Volver al inicio">⏮</button><button class="pSync" title="Igualar velocidad con el otro plato">Sync</button></div>
+          <input type="range" class="pPos" min="0" max="0" step="0.1" value="0">
+          <label>Volumen <b class="vVol">100%</b></label><input type="range" class="pVol" min="0" max="1.2" step="0.01" value="1">
+          <label>Bajos <b class="vBajo">0 dB</b></label><input type="range" class="pBajo" min="-26" max="6" step="1" value="0">
+          <label>Velocidad <b class="vVel">1.00x</b></label><input type="range" class="pVel" min="0.9" max="1.1" step="0.005" value="1">
+        </div>
+        <div class="plato" data-k="1"><h4>Plato B</h4>
+          <div class="pTit">—</div><div class="pInfo"></div>
+          <select class="pSel"><option value="">Cargar canción…</option></select>
+          <div class="pBtns"><button class="pPlay">▶</button><button class="pCue" title="Volver al inicio">⏮</button><button class="pSync" title="Igualar velocidad con el otro plato">Sync</button></div>
+          <input type="range" class="pPos" min="0" max="0" step="0.1" value="0">
+          <label>Volumen <b class="vVol">100%</b></label><input type="range" class="pVol" min="0" max="1.2" step="0.01" value="1">
+          <label>Bajos <b class="vBajo">0 dB</b></label><input type="range" class="pBajo" min="-26" max="6" step="1" value="0">
+          <label>Velocidad <b class="vVel">1.00x</b></label><input type="range" class="pVel" min="0.9" max="1.1" step="0.005" value="1">
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:14px;color:var(--mut);text-align:center">Crossfader</div>
+      <input type="range" id="xf" min="0" max="1" step="0.01" value="0">
+      <div class="xf-lab"><span style="color:#58a6ff">A</span><button id="xfCentro">Centrar</button><span style="color:#f78166">B</span></div>
+      <button id="bPasar" style="width:100%;margin-top:8px;font-size:15px;padding:10px">⇄ Pasar al otro plato (mezcla de 8 s)</button>
+      <div id="mesaAviso"></div>
+      <div class="nota">Con la mesa abierta mezclas tú: tocar una canción de la lista (o ⏭) la carga en el plato que no suena. "Sync" iguala la velocidad (necesita "Clasificar música"). Al cerrar la mesa vuelve el modo DJ automático.</div>
     </div>
     <div class="fila" style="margin-top:10px">
       <button id="bLetra">🎤 Letra</button>
@@ -191,8 +239,9 @@ let audio = decks[0];               // el que suena ahora (en modo DJ se alterna
 const urls = [null, null];
 function enAudios(ev, fn){ decks.forEach(d => d.addEventListener(ev, e => { if(d === audio) fn(e); })); }
 function otroDeck(){ return decks[0] === audio ? decks[1] : decks[0]; }
-function ponerFuente(deck, blob){
-  const k = decks.indexOf(deck);
+const enPlato = [null, null];      // qué canción tiene cargada cada plato
+function ponerFuente(deck, blob, c = null){
+  const k = decks.indexOf(deck); enPlato[k] = c;
   if(urls[k]) URL.revokeObjectURL(urls[k]);
   urls[k] = URL.createObjectURL(blob); deck.src = urls[k];
 }
@@ -296,7 +345,7 @@ const PRESETS = {
   mono:   {ancho: 1.2, tope: 0.95, falso: 0.9, falsoMono: 1.3,  salida: 0.85},
 };
 const COMP_LIM = 0.877;   // el limitador sube solo ~1,1 dB; esto lo devuelve a su sitio
-let modoEst = 'normal', ctxA = null, audioRoto = '', gDeck = null, gBajo = null;
+let modoEst = 'normal', ctxA = null, audioRoto = '', gDeck = null, gBajo = null, gPlato = [];
 let nAncho = null, nFalso = null, nNivel = null, gSeco = null, gEfecto = null, gMusica = null, nFin = null, anL = null, anR = null, anM = null, anS = null;
 let ctxBase = null, qLados = null;   // qLados: qué tan abierta es la canción que suena (0 = mono)
 function armarAudio(){
@@ -352,35 +401,12 @@ function armarAudio(){
     // Ecualizador: 5 filtros en fila + un ajuste de volumen para que al subir una barra no sature
     eqPre = g(1);
     eqNodos = EQ_BANDAS.map(b => { const f = c.createBiquadFilter(); f.type = b.tipo; f.frequency.value = b.hz; f.Q.value = 0.9; f.gain.value = 0; return f; });
-    // ---- Audio 8D: la canción se junta en un solo punto y ese punto da vueltas alrededor de la cabeza ----
+    // ---- Audio 8D (ver armar8D): la canción da vueltas alrededor de la cabeza ----
     post8 = g(1);
     ochoSeco = g(1); gMusica.connect(ochoSeco); ochoSeco.connect(post8);          // sonido sin girar
-    const uno = g(1); uno.channelCountMode = 'explicit'; uno.channelCount = 1; uno.channelInterpretation = 'speakers'; gMusica.connect(uno);
-    const pan = c.createPanner();
-    pan.panningModel = 'HRTF';            // imita cómo la cabeza y las orejas cambian el sonido según de dónde viene
-    pan.distanceModel = 'linear'; pan.rolloffFactor = 0;                          // sin bajar el volumen por distancia
-    pan.positionX.value = 0; pan.positionY.value = 0; pan.positionZ.value = 0;
-    // dos ondas lentas mueven el punto en círculo: una de lado a lado y otra de adelante hacia atrás
-    ochoOscX = c.createOscillator(); ochoOscZ = c.createOscillator();
-    ochoOscZ.setPeriodicWave(c.createPeriodicWave(new Float32Array([0, 1]), new Float32Array([0, 0])));   // coseno
-    ochoOscX.frequency.value = ochoOscZ.frequency.value = 1 / 9;
-    const radioX = g(1), radioZ = g(-1);                                          // empieza adelante y gira hacia la derecha
-    ochoOscX.connect(radioX); radioX.connect(pan.positionX); ochoOscZ.connect(radioZ); radioZ.connect(pan.positionZ);
-    ochoOscX.start(); ochoOscZ.start();
-    // refuerzo: además, el lado contrario baja de volumen cuando el sonido está a un costado (se nota más el giro)
-    const spO = c.createChannelSplitter(2), mgO = c.createChannelMerger(2), gIzq = g(1), gDer = g(1);
-    const aIzq = g(-0.45), aDer = g(0.45);
-    ochoOscX.connect(aIzq); aIzq.connect(gIzq.gain); ochoOscX.connect(aDer); aDer.connect(gDer.gain);
-    // cuando pasa por detrás se apagan los agudos (como hace la oreja con lo que viene de atrás); adelante suena brillante
-    const atras = c.createBiquadFilter(); atras.type = 'lowpass'; atras.Q.value = 0.5; atras.frequency.value = 6000;
-    const abre = g(1700); ochoOscZ.connect(abre); abre.connect(atras.detune);      // adelante ≈16 kHz, atrás ≈2,2 kHz
-    uno.connect(pan); pan.connect(atras); atras.connect(spO); spO.connect(gIzq, 0); spO.connect(gDer, 1); gIzq.connect(mgO, 0, 0); gDer.connect(mgO, 0, 1);
-    ochoGira = g(0); mgO.connect(ochoGira); ochoGira.connect(post8);
-    // un poco de eco de sala: hace que suene "afuera" de la cabeza
-    const largoEco = Math.floor(c.sampleRate * 1.1), eco = c.createBuffer(2, largoEco, c.sampleRate);
-    for(let ch = 0; ch < 2; ch++){ const d = eco.getChannelData(ch); for(let i = 0; i < largoEco; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / largoEco, 3.5); }
-    const sala = c.createConvolver(); sala.normalize = true; sala.buffer = eco;
-    ochoEco = g(0); uno.connect(sala); sala.connect(ochoEco); ochoEco.connect(post8);
+    const o8 = armar8D(c, gMusica);
+    ochoGira = o8.gira; ochoEco = o8.eco; ochoOscX = o8.x; ochoOscZ = o8.z;
+    ochoGira.connect(post8); ochoEco.connect(post8);
     post8.connect(eqPre); eqPre.connect(eqNodos[0]);
     for(let k = 1; k < eqNodos.length; k++) eqNodos[k - 1].connect(eqNodos[k]);
     // tope suave al final del ecualizador (misma curva del efecto estéreo): nunca sale más fuerte que el máximo
@@ -394,13 +420,14 @@ function armarAudio(){
     anL = c.createAnalyser(); anR = c.createAnalyser(); anL.fftSize = anR.fftSize = 2048;
     spM.connect(anL, 0); spM.connect(anR, 1);
     // Dos "platos" (como un DJ): cada uno con su volumen para mezclar
-    const gd = [];
+    const gd = []; gPlato = [];
     const gb = [];
     decks.forEach(d => {
       const f = c.createMediaElementSource(d); fuentes.push(f);
       // "perilla de bajos" de cada plato: el DJ cambia los bajos de una canción a la otra
       const bajo = c.createBiquadFilter(); bajo.type = 'lowshelf'; bajo.frequency.value = 180; bajo.gain.value = 0;
-      const gn = g(d === audio ? 1 : 0); f.connect(bajo); bajo.connect(gn); gn.connect(entrada); gd.push(gn); gb.push(bajo);
+      const gp = g(1);   // volumen propio del plato (Mesa DJ)
+      const gn = g(d === audio ? 1 : 0); f.connect(bajo); bajo.connect(gp); gp.connect(gn); gn.connect(entrada); gd.push(gn); gb.push(bajo); gPlato.push(gp);
     });
     gDeck = gd; gBajo = gb; ctxA = c;
     c.onstatechange = () => { if(c.state !== 'running' && !audio.paused) c.resume().catch(() => {}); };
@@ -410,7 +437,7 @@ function armarAudio(){
     anL = anR = anM = anS = null;
     // que nunca se quede sin sonido: lo ya conectado va directo a la salida
     try{ fuentes.forEach(f => { try{ f.disconnect(); }catch(_){} f.connect(c.destination); }); }catch(_){}
-    ctxA = null; gDeck = null; gBajo = null;
+    ctxA = null; gDeck = null; gBajo = null; gPlato = [];
     pintarEstadoEstereo();
   }
 }
@@ -522,10 +549,70 @@ ponerEstereo('normal', false);
 
 /* ---------- Audio 8D ---------- */
 let ochoSeg = 0, post8 = null, ochoSeco = null, ochoGira = null, ochoEco = null, ochoOscX = null, ochoOscZ = null;   // ochoSeg: segundos por vuelta (0 = apagado)
+// Audio 8D (versión 2): el sonido da vueltas alrededor de la cabeza usando las mismas pistas que usa el oído
+//  - retraso entre oídos (el oído lejano escucha ~0,6 ms después): es lo que más ubica el sonido a un lado
+//  - sombra de la cabeza: al oído lejano le llegan menos agudos (no se baja todo el volumen)
+//  - detrás suena más opaco y con más eco de sala (se siente lejos); adelante, más claro y cercano
+//  - los graves profundos se quedan al centro: el "golpe" no sube y baja con el giro
+function armar8D(c, fuente){
+  const g = v => { const n = c.createGain(); n.gain.value = v; return n; };
+  const filtro = (tipo, hz, q = 0.7071) => { const f = c.createBiquadFilter(); f.type = tipo; f.frequency.value = hz; f.Q.value = q; return f; };
+  const uno = g(1); uno.channelCountMode = 'explicit'; uno.channelCount = 1; uno.channelInterpretation = 'speakers';
+  fuente.connect(uno);
+  // posición: x = de izquierda (-1) a derecha (+1); z = adelante (+1) / atrás (-1)
+  const x = c.createOscillator(), z = c.createOscillator();
+  z.setPeriodicWave(c.createPeriodicWave(new Float32Array([0, 1]), new Float32Array([0, 0])));   // coseno
+  x.frequency.value = z.frequency.value = 1 / 9;
+  x.start(); z.start();
+  const zInv = g(-1); z.connect(zInv);                                   // +1 cuando está atrás
+  // graves al centro (cruce de 4.º orden: al sumar las dos partes no se pierde nada)
+  const lp1 = filtro('lowpass', 140), lp2 = filtro('lowpass', 140), hp1 = filtro('highpass', 140), hp2 = filtro('highpass', 140);
+  uno.connect(lp1); lp1.connect(lp2); uno.connect(hp1); hp1.connect(hp2);
+  // adelante / atrás: detrás pierde brillo; adelante tiene más "presencia"
+  const brillo = filtro('highshelf', 3500); brillo.gain.value = -1;
+  const gz1 = g(2); z.connect(gz1); gz1.connect(brillo.gain);              // adelante +1 dB, atrás −3 dB
+  const pres = filtro('peaking', 2800, 1); pres.gain.value = 0;
+  const gz2 = g(2); z.connect(gz2); gz2.connect(pres.gain);                // adelante +2 dB, atrás −2 dB
+  const cerca = g(1); const gz3 = g(0.05); z.connect(gz3); gz3.connect(cerca.gain);   // atrás un poquito más lejos (−0,9 dB)
+  hp2.connect(brillo); brillo.connect(pres); pres.connect(cerca);
+  // sombra de la cabeza: curva que vale −11 dB si el sonido está del otro lado y +2 dB si está de este lado
+  const N = 1025, curva = new Float32Array(N);
+  for(let i = 0; i < N; i++){ const p = (i / (N - 1)) * 2 - 1; curva[i] = p > 0 ? -11 * p : 2 * -p; }
+  const oido = (signo) => {                                               // signo: −1 oído izquierdo, +1 derecho
+    const lado = g(-signo); x.connect(lado);                               // > 0 cuando el sonido está del lado contrario
+    const forma = c.createWaveShaper(); forma.curve = curva; lado.connect(forma);
+    const ret = c.createDelay(0.01); ret.delayTime.value = 0.00035;
+    const itd = g(-signo * 0.00032); x.connect(itd); itd.connect(ret.delayTime);   // oído lejano: hasta 0,67 ms tarde
+    const sombra = filtro('highshelf', 1600); sombra.gain.value = 0; forma.connect(sombra.gain);
+    const nivel = g(1); const ild = g(signo * 0.18); x.connect(ild); ild.connect(nivel.gain);   // ±1,5 dB en todo el sonido
+    cerca.connect(ret); ret.connect(sombra); sombra.connect(nivel);
+    return nivel;
+  };
+  const mg = c.createChannelMerger(2);
+  oido(-1).connect(mg, 0, 0); oido(1).connect(mg, 0, 1);
+  const centro = g(1); lp2.connect(centro); centro.connect(mg, 0, 0); centro.connect(mg, 0, 1);
+  const gira = g(0); mg.connect(gira);
+  // sala: eco distinto en cada oído (se siente afuera de la cabeza), más eco cuando pasa por detrás
+  const sr = c.sampleRate, largo = Math.floor(sr * 1.6), ir = c.createBuffer(2, largo, sr), pre = Math.floor(sr * 0.018);
+  for(let ch = 0; ch < 2; ch++){
+    const d = ir.getChannelData(ch); let lp = 0;
+    for(let i = pre; i < largo; i++){
+      const t = (i - pre) / sr, k = Math.min(0.92, 0.25 + t * 0.9);     // con el tiempo el eco se vuelve más opaco
+      lp = lp * k + (Math.random() * 2 - 1) * (1 - k);
+      d[i] = lp * Math.exp(-t * 4.2) * 3;
+    }
+    [0.007, 0.013, 0.021, 0.029].forEach((r, j) => { const i = pre + Math.floor((r + ch * 0.0023 * (j + 1)) * sr); if(i < largo) d[i] += 0.5 / (j + 1); });   // primeros rebotes
+  }
+  const sala = c.createConvolver(); sala.normalize = true; sala.buffer = ir;
+  const envio = g(1); const gz4 = g(0.6); zInv.connect(gz4); gz4.connect(envio.gain);   // atrás 1,6x de eco, adelante 0,4x
+  hp2.connect(envio); envio.connect(sala);
+  const eco = g(0); sala.connect(eco);
+  return {gira, eco, x, z};
+}
 function aplicar8D(ya = false){
   if(!ctxA || !ochoGira) return;
   const t = ctxA.currentTime, k = ya ? 0.001 : 0.25, on = ochoSeg > 0;
-  [[ochoSeco, on ? 0.15 : 1], [ochoGira, on ? 0.9 : 0], [ochoEco, on ? 0.22 : 0]]
+  [[ochoSeco, on ? 0 : 1], [ochoGira, on ? 1 : 0], [ochoEco, on ? 0.3 : 0]]
     .forEach(([n, v]) => { n.gain.cancelScheduledValues(t); n.gain.setTargetAtTime(v, t, k); });
   if(on) [ochoOscX, ochoOscZ].forEach(o => { o.frequency.cancelScheduledValues(t); o.frequency.setTargetAtTime(1 / ochoSeg, t, 0.3); });
 }
@@ -741,7 +828,7 @@ async function prepararSiguiente(){
   try{
     const b = await archivoDe(c), d = otroDeck();
     if(mezclando) return;
-    ponerFuente(d, b); d.currentTime = 0;
+    ponerFuente(d, b, c); d.currentTime = 0;
     await new Promise(ok => { if(d.readyState >= 1) ok(); else d.addEventListener('loadedmetadata', ok, {once:true}); });
     d.currentTime = c.ini || 0;
     proxima.listo = true;
@@ -789,7 +876,7 @@ async function mezclarA(i, seg, auto = false){
     await prepararBordes(c);
     if(!(proxima && proxima.c === c && proxima.listo)){
       const b = await archivoDe(c), d = otroDeck();
-      ponerFuente(d, b);
+      ponerFuente(d, b, c);
       await new Promise(ok => { if(d.readyState >= 1) ok(); else d.addEventListener('loadedmetadata', ok, {once:true}); });
       d.currentTime = c.ini || 0;
     }
@@ -881,7 +968,7 @@ async function mezclarA(i, seg, auto = false){
 function cancelarMezcla(){
   if(timerMezcla){ clearTimeout(timerMezcla); timerMezcla = null; }
   pararRampaVel();
-  mezclando = false; proxima = null;
+  mezclando = false; proxima = null; mesaManual = false;
   const o = otroDeck(); o.pause();
   velocidad(o, 1); velocidad(audio, 1);
   if(gDeck && ctxA){
@@ -893,7 +980,7 @@ function cancelarMezcla(){
 }
 // Vigila cuándo empezar a mezclar: la mezcla termina donde la canción empieza a bajar sola
 enAudios('timeupdate', () => {
-  if(!djSeg || mezclando || actual < 0 || audio.paused) return;
+  if(!djSeg || mezclando || mesaAbierta || actual < 0 || audio.paused) return;
   const c = lista[actual]; if(!c) return;
   const punto = c.sal || c.fin || audio.duration; if(!punto || !isFinite(punto)) return;
   const r = audio.playbackRate || 1;
@@ -907,6 +994,188 @@ enAudios('timeupdate', () => {
 // Si el usuario cambia algo que afecta la siguiente canción, se vuelve a elegir
 ponerDJ(0, false);
 ['bAleat','bRep'].forEach(id => $(id).addEventListener('click', () => { if(!mezclando) proxima = null; }));
+
+/* ---------- Mesa DJ: mezclar a mano con dos platos y crossfader ----------
+   Plato A = primer reproductor, Plato B = segundo. El crossfader reparte el sonido entre los dos
+   (potencia igual: al centro no baja el volumen). El plato que más suena es "el que suena"
+   (título, barra, letra y pantalla de bloqueo). Con la mesa abierta, el modo DJ automático descansa. */
+let mesaAbierta = false, mesaManual = false, xfArrastre = false, xfAnim = null, mesaTimer = null;
+const platosEl = [...document.querySelectorAll('.plato')];
+function avisoMesa(t){ $('mesaAviso').textContent = t; clearTimeout(avisoMesa.t); avisoMesa.t = setTimeout(() => $('mesaAviso').textContent = '', 5000); }
+function tomarControl(){                 // si había una mezcla automática, se detiene donde va (sin saltos)
+  if(timerMezcla){ clearTimeout(timerMezcla); timerMezcla = null; }
+  pararRampaVel(); mezclando = false; proxima = null; mesaManual = true;
+  if(gDeck && ctxA){ const t = ctxA.currentTime; gDeck.forEach(n => { const v = n.gain.value; n.gain.cancelScheduledValues(0); n.gain.setValueAtTime(v, t); }); }
+}
+function xfDeGanancias(){                // posición del crossfader según cómo suenan los platos
+  if(!gDeck) return decks.indexOf(audio);
+  const a = gDeck[0].gain.value, b = gDeck[1].gain.value;
+  return a + b < 0.0001 ? decks.indexOf(audio) : Math.atan2(b, a) / (Math.PI / 2);
+}
+function aplicarXF(x){
+  despertarAudio(); if(!gDeck) return;
+  if(!mesaManual) tomarControl();
+  const t = ctxA.currentTime;
+  gDeck[0].gain.setTargetAtTime(Math.cos(x * Math.PI / 2), t, 0.015);
+  gDeck[1].gain.setTargetAtTime(Math.sin(x * Math.PI / 2), t, 0.015);
+  revisarPrincipal(x);
+}
+function revisarPrincipal(x){            // el plato que más suena pasa a ser el principal
+  const k = x > 0.5 ? 1 : x < 0.5 ? 0 : decks.indexOf(audio);
+  const d = decks[k], c = enPlato[k];
+  if(d === audio || d.paused || !c) return;
+  const i = lista.indexOf(c); if(i < 0) return;
+  audio = d; actual = i;
+  $('barra').max = d.duration || 0; $('tTot').textContent = fmt(d.duration);
+  $('bPlay').textContent = '⏸'; $('disco').classList.add('gira');
+  nuevaCancionEstereo(); mostrarActual(); pintarLista(); guardarEstado();
+  if(flotAbierto()) cargarLetra();
+}
+function animarXF(hasta, seg){           // mueve el crossfader solo, poco a poco
+  clearInterval(xfAnim);
+  const desde = +$('xf').value, t0 = Date.now();
+  xfAnim = setInterval(() => {
+    const p = Math.min(1, (Date.now() - t0) / (seg * 1000));
+    const x = desde + (hasta - desde) * p;
+    $('xf').value = x; aplicarXF(x);
+    if(p >= 1) clearInterval(xfAnim);
+  }, 40);
+}
+async function cargarEnPlato(k, i){
+  const c = lista[i]; if(!c) return;
+  despertarAudio();
+  const d = decks[k];
+  if(!d.paused && gDeck && gDeck[k].gain.value > 0.05){ avisoMesa(`El plato ${k ? 'B' : 'A'} está sonando: lleva el crossfader al otro lado o páusalo primero`); return; }
+  if(!mesaManual) tomarControl();
+  let b;
+  try{ b = await archivoDe(c); }catch(e){ avisoMesa('No se pudo abrir esa canción' + (c.deCarpeta ? ': conecta tu carpeta de música' : '')); return; }
+  d.pause(); velocidad(d, 1); ponerFuente(d, b, c);
+  await new Promise(ok => { if(d.readyState >= 1) ok(); else d.addEventListener('loadedmetadata', ok, {once:true}); });
+  prepararBordes(c).then(() => { if(enPlato[k] === c && d.paused && d.currentTime < 0.5 && c.ini > 0.3) d.currentTime = c.ini; }).catch(() => {});
+  if(d === audio){ actual = i; nuevaCancionEstereo(); mostrarActual(); pintarLista(); guardarEstado(); $('barra').max = d.duration || 0; $('tTot').textContent = fmt(d.duration); }
+  pintarPlato(k, true);
+}
+function llenarSelect(k){
+  const sel = platosEl[k].querySelector('.pSel'), v = visibles();
+  sel.innerHTML = '<option value="">Cargar canción…</option>';
+  v.forEach(i => { const o = document.createElement('option'); o.value = i; o.textContent = titulo(lista[i]) + (lista[i].bpm ? ` · ${Math.round(lista[i].bpm)} BPM` : ''); sel.append(o); });
+}
+function bpmPlato(k){ const c = enPlato[k]; return c && c.bpm ? tempoDJ(c.bpm) * (decks[k].playbackRate || 1) : 0; }
+function pintarPlato(k, todo = false){
+  const el = platosEl[k], d = decks[k], c = enPlato[k];
+  el.querySelector('.pTit').textContent = c ? titulo(c) : '—';
+  const bpm = bpmPlato(k), suena = d === audio ? ' · ▶ principal' : '';
+  el.querySelector('.pInfo').textContent = c ? `${fmt(d.currentTime)} / ${fmt(d.duration)}${bpm ? ' · ' + bpm.toFixed(1) + ' BPM' : ''}${suena}` : 'Vacío';
+  el.querySelector('.pPlay').textContent = d.paused ? '▶' : '⏸';
+  const pos = el.querySelector('.pPos');
+  if(!pos.dataset.arr){ pos.max = d.duration || 0; pos.value = d.currentTime || 0; }
+  if(todo){
+    const r = d.playbackRate || 1;
+    el.querySelector('.pVel').value = r; el.querySelector('.vVel').textContent = r.toFixed(3).replace(/0$/, '') + 'x';
+    const v = gPlato[k] ? gPlato[k].gain.value : 1;
+    el.querySelector('.pVol').value = v; el.querySelector('.vVol').textContent = Math.round(v * 100) + '%';
+    const bj = gBajo ? Math.round(gBajo[k].gain.value) : 0;
+    el.querySelector('.pBajo').value = bj; el.querySelector('.vBajo').textContent = bj + ' dB';
+  }
+}
+function pintarMesa(todo = false){
+  pintarPlato(0, todo); pintarPlato(1, todo);
+  if(!xfArrastre && !xfAnim) $('xf').value = xfDeGanancias();
+}
+platosEl.forEach((el, k) => {
+  const d = decks[k];
+  const sel = el.querySelector('.pSel');
+  sel.addEventListener('focus', () => llenarSelect(k));
+  sel.addEventListener('pointerdown', () => llenarSelect(k));
+  sel.onchange = () => { if(sel.value !== '') cargarEnPlato(k, +sel.value); sel.value = ''; };
+  el.querySelector('.pPlay').onclick = async () => {
+    despertarAudio();
+    if(!enPlato[k] || !d.src){ avisoMesa('Primero carga una canción en este plato'); return; }
+    if(!mesaManual) tomarControl();
+    if(d.paused){ try{ await d.play(); }catch(e){} revisarPrincipal(+$('xf').value); }
+    else d.pause();
+    pintarPlato(k);
+  };
+  el.querySelector('.pCue').onclick = () => { const c = enPlato[k]; d.currentTime = c && c.ini > 0.3 ? c.ini : 0; pintarPlato(k); };
+  el.querySelector('.pSync').onclick = () => {
+    const o = 1 - k, mio = enPlato[k], otro = enPlato[o];
+    if(!mio || !otro){ avisoMesa('Carga una canción en cada plato'); return; }
+    if(!mio.bpm || !otro.bpm){ avisoMesa('Falta saber la velocidad: toca "🏷 Clasificar música" abajo'); return; }
+    const r = bpmPlato(o) / tempoDJ(mio.bpm);
+    if(Math.abs(r - 1) > 0.1){ avisoMesa('Velocidades muy distintas (más de 10 %): no se pueden igualar sin que se note'); return; }
+    velocidad(d, r); pintarPlato(k, true);
+    avisoMesa(`Plato ${k ? 'B' : 'A'} a ${bpmPlato(k).toFixed(1)} BPM, igual que el otro`);
+  };
+  const pos = el.querySelector('.pPos');
+  pos.addEventListener('input', () => { pos.dataset.arr = '1'; });
+  pos.addEventListener('change', () => { d.currentTime = +pos.value; delete pos.dataset.arr; });
+  el.querySelector('.pVol').oninput = e => {
+    despertarAudio(); const v = +e.target.value;
+    if(gPlato[k]) gPlato[k].gain.setTargetAtTime(v, ctxA.currentTime, 0.02);
+    el.querySelector('.vVol').textContent = Math.round(v * 100) + '%';
+  };
+  el.querySelector('.pBajo').oninput = e => {
+    despertarAudio(); const v = +e.target.value;
+    if(gBajo){ gBajo[k].gain.cancelScheduledValues(0); gBajo[k].gain.setTargetAtTime(v, ctxA.currentTime, 0.02); }
+    el.querySelector('.vBajo').textContent = v + ' dB';
+  };
+  el.querySelector('.pVel').oninput = e => {
+    if(!mesaManual) tomarControl();
+    const r = +e.target.value; velocidad(d, r);
+    el.querySelector('.vVel').textContent = r.toFixed(3).replace(/0$/, '') + 'x';
+  };
+});
+$('xf').addEventListener('input', e => { xfArrastre = true; clearInterval(xfAnim); xfAnim = null; aplicarXF(+e.target.value); });
+$('xf').addEventListener('change', () => { xfArrastre = false; });
+$('xfCentro').onclick = () => { clearInterval(xfAnim); xfAnim = null; $('xf').value = 0.5; aplicarXF(0.5); };
+$('bPasar').onclick = async () => {
+  despertarAudio();
+  const k = 1 - decks.indexOf(audio), d = decks[k];   // hacia el plato que no es el principal
+  if(!enPlato[k] || !d.src){ avisoMesa(`Primero carga una canción en el plato ${k ? 'B' : 'A'}`); return; }
+  if(!mesaManual) tomarControl();
+  if(d.paused){ try{ await d.play(); }catch(e){} }
+  animarXF(k, 8);
+};
+function abrirMesa(abrir){
+  mesaAbierta = abrir;
+  $('mesa').classList.toggle('ver', abrir);
+  $('bMesa').classList.toggle('on', abrir);
+  $('bMesa').textContent = abrir ? '🎛 Cerrar mesa DJ (vuelve el modo automático)' : '🎛 Mesa DJ — mezclar a mano';
+  clearInterval(mesaTimer); clearInterval(xfAnim); xfAnim = null;
+  if(abrir){
+    despertarAudio();
+    if(mezclando) tomarControl();
+    if(!enPlato[decks.indexOf(audio)] && actual >= 0 && audio.src) enPlato[decks.indexOf(audio)] = lista[actual];
+    llenarSelect(0); llenarSelect(1); pintarMesa(true);
+    mesaTimer = setInterval(() => pintarMesa(), 250);
+  } else if(gDeck && ctxA){
+    // al cerrar: queda sonando solo el plato principal, con todo en su sitio (suave, sin saltos)
+    const kA = decks.indexOf(audio), kO = 1 - kA, o = decks[kO], t = ctxA.currentTime;
+    gDeck.forEach(n => { const v = n.gain.value; n.gain.cancelScheduledValues(0); n.gain.setValueAtTime(v, t); });
+    gDeck[kA].gain.linearRampToValueAtTime(1, t + 1.5); gDeck[kO].gain.linearRampToValueAtTime(0, t + 1.5);
+    gPlato.forEach(n => { n.gain.cancelScheduledValues(0); n.gain.setTargetAtTime(1, t, 0.3); });
+    resetPlatos();
+    setTimeout(() => { if(!mesaAbierta){ o.pause(); velocidad(o, 1); } }, 1700);
+    if(Math.abs((audio.playbackRate || 1) - 1) > 0.001){   // vuelve sola a su velocidad normal, poco a poco
+      pararRampaVel(); const d = audio;
+      rampaVel = setInterval(() => {
+        if(audio !== d || mezclando || mesaAbierta){ pararRampaVel(); return; }
+        const r = d.playbackRate, paso = 0.0015;
+        if(Math.abs(r - 1) <= paso){ velocidad(d, 1); pararRampaVel(); } else velocidad(d, r + (r < 1 ? paso : -paso));
+      }, 400);
+    }
+    mesaManual = false;
+  }
+}
+$('bMesa').onclick = () => abrirMesa(!mesaAbierta);
+// Cuando termina la canción principal: con la mesa abierta, si el otro plato está sonando, pasa a ese
+function finCancion(){
+  if(mesaAbierta){
+    const kO = decks.indexOf(otroDeck());
+    if(!decks[kO].paused && enPlato[kO]){ clearInterval(xfAnim); xfAnim = null; $('xf').value = kO; aplicarXF(kO); return; }
+  }
+  siguiente(true);
+}
 
 /* ---------- Reproducción ---------- */
 function fmt(s){ if(!isFinite(s)) return '0:00'; s = Math.floor(s); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
@@ -1004,7 +1273,7 @@ async function cargar(i, reproducir=true, desde=0){
   if(actual !== i) return;
   cancelarMezcla();
   nuevaCancionEstereo();
-  ponerFuente(audio, b);
+  ponerFuente(audio, b, c);
   if(!desde && djSeg && c.ini > 0.3) desde = c.ini;   // modo DJ: salta el silencio del inicio
   if(desde){ const d = audio; d.addEventListener('loadedmetadata', () => { d.currentTime = desde; }, {once:true}); }
   if(djSeg) prepararBordes(c);
@@ -1038,6 +1307,7 @@ function siguienteIndice(auto){
 }
 function irA(i){
   if(i < 0) return;
+  if(mesaAbierta && audio.src && !audio.paused){ cargarEnPlato(decks.indexOf(otroDeck()), i); return; }   // Mesa DJ: va al plato que no suena
   if(djSeg && ctxA && !audio.paused && audio.src) mezclarA(i, Math.min(3, djSeg)); // en modo DJ, cambiar a mano también mezcla
   else cargar(i);
 }
@@ -1060,7 +1330,7 @@ function avisarApp(){
   const c = lista[actual];
   try{ AndroidJAT.estado(c ? titulo(c) : '', c ? (c.artista || '') : '', !audio.paused); }catch(e){}
 }
-enAudios('ended', () => siguiente(true));
+enAudios('ended', finCancion);
 enAudios('loadedmetadata', () => { $('barra').max = audio.duration || 0; $('tTot').textContent = fmt(audio.duration); });
 let ultimoGuardado = 0;
 enAudios('timeupdate', () => {

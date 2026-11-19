@@ -4,10 +4,11 @@ Reproductor de música sencillo en una sola página HTML.
 
 - Reproducir/pausar, anterior/siguiente, barra de tiempo y volumen
 - Modos aleatorio y repetir
-- Audio 8D: el sonido gira alrededor de la cabeza (Lento / Normal / Rápido), para audífonos
+- Audio 8D: el sonido gira alrededor de la cabeza (Lento / Normal / Rápido), para audífonos: retraso entre oídos, sombra de la cabeza en los agudos, detrás más opaco y con eco de sala; los graves quedan al centro y el volumen no sube y baja
 - Ecualizador de 5 barras (Graves, Bajos, Voces, Claridad, Agudos) con ajustes listos: Más bajos, Rock, Pop, Salsa, Voz clara, Más brillo, Parlante de celular
 - Mezcla DJ: clasifica qué canciones se pueden mezclar (golpe marcado) y las agrupa por velocidad parecida; también en Android Auto (Más → Mezcla DJ)
 - Modo DJ: mezcla una canción con la siguiente (4, 8 o 12 s) como un DJ: une los golpes de las dos canciones (iguala la velocidad sin cambiar el tono y entra justo en el golpe), baja poco a poco la que termina mientras sube la nueva (fundido cruzado), termina la mezcla antes de que la canción se apague sola, iguala el volumen y, en aleatorio, elige una siguiente con velocidad parecida. Salta los silencios del inicio y del final
+- Mesa DJ (mezclar a mano): plato A y plato B con volumen, bajos, velocidad y Sync de BPM, crossfader y botón para pasar al otro plato en 8 s
 - Sonido estéreo: Normal, Ampliado, Máximo y Mono→Estéreo. Se ajusta solo a cada canción (crea estéreo si es mono, no exagera si ya es abierta), con medidor izquierda/derecha y prueba de parlantes
 - Elegir la carpeta de música: carga todo y revisa sola cada minuto si hay canciones nuevas (o borradas)
 - Ver por género, ritmo (lento / moderado / rápido según BPM), artista, álbum, año y carpeta
