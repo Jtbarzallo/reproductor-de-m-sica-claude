@@ -5,6 +5,24 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 22 nov 2026 — Mixer (estilo DJ)
+**Pedido por Jorge:** crear la función mixer, como la de la captura (ondas de las dos canciones, BPM, tono "10A", "8 bars").
+
+**Novedades**
+- **🎛 Mixer**: en ⋮ → "Mixer", o en la tarjeta DJ de "Reproduciendo". Pantalla oscura con:
+  - **Arriba la canción que suena y abajo la siguiente**, cada una con carátula, título, artista, **BPM**, **tono** (rueda Camelot de los DJ, ej. "8A" = La menor) y tiempo.
+  - **Ondas de colores** que avanzan: **azul = graves** (bombo, bajo), **naranja = medios** (voz, guitarra), **blanco = agudos** (platillos). Líneas de **golpes** (más fuertes cada compás) y **línea verde** = lo que suena.
+  - **⟲5 / ▶ / 5⟳** y **🔁 Repetir** 1, 2, 4, 8 o 16 compases (loop unido a los golpes).
+  - **🔍− / 🔍+** para ver más o menos tiempo. **Arrastrar la onda** de arriba para moverse; **tocar el resumen** de abajo para saltar.
+  - Aviso de si **los tonos combinan** y si **la velocidad es parecida** (se unen los golpes).
+  - **⇄ Mezclar ahora**: pasa a la siguiente con mezcla DJ (golpes unidos), con los segundos del Modo DJ (o 8 s).
+  - **🎯 Elegir la siguiente**: lista ordenada por las que mejor se mezclan (velocidad y tono parecidos ✔). La elegida también la usa el modo DJ automático.
+- El **tono** de cada canción se calcula solo la primera vez que se ve en el mixer.
+
+**Respaldo (regla fija):** el tono calculado de cada canción va en el respaldo (💾). Las ondas no hace falta guardarlas: se vuelven a calcular solas.
+
+---
+
 ## 22 nov 2026 — Transmitir a otro aparato (Bluetooth)
 **Pedido por Jorge:** poder mandar la música a otro aparato Bluetooth, como el botón de transmitir de Deezer.
 

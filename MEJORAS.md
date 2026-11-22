@@ -26,6 +26,7 @@
 - [x] Sin morado (22 nov): interfaz en azul marino, con opción de rojo en Ajustes → Color de la app; va en el respaldo
 - [x] Abrir con Reproductor JAT (22 nov): al tocar una canción en otra app (por ejemplo Archivos JAT), el Reproductor JAT aparece en "Abrir con" y la pone a sonar dentro de la lista de la música del celular
 - [x] Transmitir a otro aparato Bluetooth (22 nov): selector de salida de Android, ajustes de Bluetooth y "Sonando en"
+- [x] Mixer estilo DJ (22 nov): ondas de colores de las dos canciones, golpes/compases, BPM, tono Camelot, loop de compases, mezclar ahora, elegir la siguiente por compatibilidad; tono en el respaldo
 
 ## Pendientes / ideas
 - [ ] Favoritas también en Android Auto (una pestaña "Favoritas" en el carro)
@@ -33,6 +34,7 @@
 - [ ] Pasar de canción deslizando la carátula a los lados (como Deezer)
 - [ ] Guardar también los datos editados dentro del archivo de música (escribir el TAG en el MP3)
 - [ ] Letra: botón "Con traducción" (traducir la letra al español/inglés)
+- [ ] Mixer: marcar puntos (cue) y ecualizador por canción (graves/medios/agudos) mientras se mezcla
 - [ ] Cola "Reproducir a continuación" desde el ⋮ de cada canción
 - [ ] Entrar en el inicio de un compás/frase (no solo en un golpe)
 - [ ] Mezclar también canciones de velocidades muy distintas con un efecto de transición (eco/filtro)

@@ -123,6 +123,38 @@
   .sec{margin-top:14px;font-size:15px;color:var(--mut);font-weight:600}
 
   /* ---- hoja de opciones (menú ⋮) ---- */
+  /* ---- Mixer ---- */
+  #mixer{position:fixed;inset:0;z-index:45;background:#0e0f13;color:#fff;display:none;flex-direction:column;overflow-y:auto;padding-bottom:calc(14px + env(safe-area-inset-bottom))}
+  #mixer.ver{display:flex}
+  .mxCab{display:flex;align-items:center;gap:6px;padding:8px 10px}
+  .mxCab h2{flex:1;margin:0 0 0 6px;font-size:20px}
+  #mixer .ib{color:#fff}
+  #mixer button{background:#23252d;color:#fff}
+  #mixer .mxZ{padding:8px 12px;font-size:15px}
+  .mxInfo{display:flex;align-items:center;gap:12px;padding:6px 14px}
+  .mxInfo .por{width:56px;height:56px;flex:0 0 56px;border-radius:6px;overflow:hidden;background:#23252d;color:#888}
+  .mxInfo .por img{width:100%;height:100%;object-fit:cover}
+  .mxInfo .tx{flex:1;min-width:0}
+  .mxT{font-size:19px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mxAr{font-size:15px;color:#c9cbd3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mxInfo .der{text-align:right;flex:0 0 auto}
+  .mxBpm{font-size:20px;font-weight:800}
+  .mxTono{display:inline-block;background:#bfe3ff;color:#0b3a66;border-radius:6px;padding:1px 7px;font-weight:700;font-size:14px}
+  .mxTiempo{font-size:14px;color:#c9cbd3}
+  #mxEnEspera{font-size:12px;color:#9aa0ad}
+  .mxOnda{width:100%;height:24vh;min-height:130px;display:block;touch-action:none;background:#15171d}
+  .mxCtrl{display:flex;justify-content:center;align-items:center;gap:12px;padding:8px}
+  .mxCtrl button{font-size:17px;padding:10px 14px;border-radius:24px}
+  #mixer .mxBig{width:60px;height:60px;border-radius:50%;background:#fff;color:#0e0f13;display:flex;align-items:center;justify-content:center;padding:0}
+  #mixer .mxBig svg.i{width:34px;height:34px}
+  #mixer #mxLoop.on{background:#19d3ff!important;color:#00222c!important}
+  #mxCompat{display:flex;flex-direction:column;gap:4px;padding:4px 16px;font-size:15px;color:#c9cbd3}
+  #mxCompat .bien{color:#5dff8a} #mxCompat .mal{color:#ffb35c}
+  .mxAcc{display:flex;gap:10px;padding:8px 14px}
+  .mxAcc button{flex:1;font-size:16px;font-weight:700}
+  #mixer #mxMezclar{background:var(--acc);color:#fff}
+  #mxResumen{width:calc(100% - 28px);height:46px;margin:6px 14px;display:block;cursor:pointer;border-radius:6px;background:#15171d}
+  .mxNota{font-size:12px;color:#8b909c;padding:2px 16px;line-height:1.4}
   #velo{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:60;display:none}
   #velo.ver{display:block}
   #hoja{position:fixed;left:0;right:0;bottom:0;z-index:61;background:var(--bg);border-radius:22px 22px 0 0;max-height:82vh;overflow-y:auto;
@@ -411,6 +443,7 @@
       <button data-s="8">8 s</button>
       <button data-s="12">12 s</button>
     </div>
+    <button id="bMixer" style="width:100%;margin-top:8px;font-size:15px;padding:10px">🎛 Mixer — ver las ondas, golpes, BPM y tono</button>
     <button id="bMesa" style="width:100%;margin-top:8px;font-size:15px;padding:10px">🎛 Mesa DJ — mezclar a mano</button>
     <div id="mesa">
       <div class="platos">
@@ -442,6 +475,28 @@
     </div>
     </div>
   </div>
+</div>
+
+<!-- ===== Mixer (estilo DJ) ===== -->
+<div id="mixer">
+  <div class="mxCab"><button class="ib" id="mxCerrar" title="Cerrar">✕</button><h2>Mixer</h2>
+    <button class="mxZ" id="mxZmenos" title="Ver más tiempo">🔍−</button><button class="mxZ" id="mxZmas" title="Acercar">🔍+</button></div>
+  <div class="mxInfo" id="mxInfoA"><div class="por"></div><div class="tx"><div class="mxT"></div><div class="mxAr"></div></div>
+    <div class="der"><div class="mxBpm"></div><div><span class="mxTono"></span> <span id="mxTiempoA" class="mxTiempo"></span></div></div></div>
+  <canvas id="mxOndaA" class="mxOnda"></canvas>
+  <div class="mxCtrl">
+    <button id="mxAtr" title="Atrás 5 s">⟲5</button>
+    <button id="mxPlay" class="mxBig" title="Reproducir / pausa"></button>
+    <button id="mxAde" title="Adelante 5 s">5⟳</button>
+    <button id="mxLoop">🔁 Repetir ▾</button>
+  </div>
+  <canvas id="mxOndaB" class="mxOnda"></canvas>
+  <div class="mxInfo" id="mxInfoB"><div class="por"></div><div class="tx"><div class="mxT"></div><div class="mxAr"></div></div>
+    <div class="der"><div class="mxBpm"></div><div><span class="mxTono"></span> <span id="mxTiempoB" class="mxTiempo"></span></div><div id="mxEnEspera"></div></div></div>
+  <div id="mxCompat"></div>
+  <div class="mxAcc"><button id="mxMezclar">⇄ Mezclar ahora</button><button id="mxElegir">🎯 Elegir la siguiente</button></div>
+  <canvas id="mxResumen"></canvas>
+  <div class="mxNota">Azul = graves (bombo, bajo) · Naranja = medios (voz) · Blanco = agudos · Líneas = golpes (las fuertes, cada compás) · Línea verde = lo que suena. Arrastra la onda de arriba para moverte.</div>
 </div>
 
 <div id="velo"></div>
@@ -520,7 +575,7 @@ function leerTodas(){
 function estado(){
   return { app:'Reproductor de Música JAT', version:1, fecha:new Date().toISOString(),
     orden: lista.map(c => c.nombre),
-    etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm || c.caratula || c.tagManual).map(c => [c.nombre, {titulo:c.titulo||'', caratula:c.caratula||'', manual:c.tagManual?1:0, carM:c.carManual?1:0, artista:c.artista||'', album:c.album||'', anio:c.anio||'', genero:c.genero||'', bpm:c.bpm||0, pulso:c.pulso||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
+    etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm || c.caratula || c.tagManual || c.tono).map(c => [c.nombre, {titulo:c.titulo||'', caratula:c.caratula||'', manual:c.tagManual?1:0, carM:c.carManual?1:0, tono:c.tono||'', tonoNom:c.tonoNom||'', artista:c.artista||'', album:c.album||'', anio:c.anio||'', genero:c.genero||'', bpm:c.bpm||0, pulso:c.pulso||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
     vista, favoritas: lista.filter(c => c.fav).map(c => c.nombre),
     clave: claveGuardada(), actual: lista[actual]?.nombre || null,
     posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg, eq: eqVals, ocho: ochoSeg, letraModo, tema };
@@ -557,6 +612,7 @@ function aplicarEstado(e, conPos, soloLista = false){
     let cambio = false;
     // lo que Jorge corrigió a mano (datos o carátula) manda sobre lo que trae el archivo
     if(t.manual && !c.tagManual){ ['titulo','artista','album','anio','genero'].forEach(k => { c[k] = t[k] || ''; }); c.tagManual = true; cambio = true; }
+    if(t.tono && !c.tono){ c.tono = t.tono; c.tonoNom = t.tonoNom || ''; cambio = true; }
     if(t.carM && !c.carManual && t.caratula){ c.caratula = t.caratula; delete c.portada; c.carManual = true; c.carV = 2; cambio = true; }
     for(const k of ['titulo','artista','album','anio','genero','bpm','pulso','letra','letraSync','caratula']) if(t[k] && !c[k] && !(k === 'caratula' && c.carV >= 2) && !c.tagManual){ c[k] = t[k]; cambio = true; if(k === 'caratula'){ c.carV = 2; c.carManual = true; } }
     if(cambio) guardarCancion(c);
@@ -1058,8 +1114,8 @@ function prepararBordes(c){
   bordesEnCurso.set(c, pr);
   return pr;
 }
-async function prepararSiguiente(){
-  const i = siguienteIndice(true);
+async function prepararSiguiente(forzado){
+  const i = typeof forzado === 'number' ? forzado : siguienteIndice(true);
   if(i < 0){ proxima = null; return; }
   const c = lista[i];
   proxima = {i, c, listo: false};
@@ -2710,6 +2766,318 @@ function barraApp(){
   try{ AndroidJAT.colorBarra(col, osc); }catch(e){}
 }
 
+/* ---------- MIXER: ondas de colores de las dos canciones, golpes, compases, BPM y tono ---------- */
+const ONDA_FPS = 40;                       // columnas de onda por segundo
+const ondas = new Map(), ondasEnCurso = new Map();
+// Transformada rápida de Fourier (para saber qué notas suenan)
+function fft(re, im){
+  const n = re.length;
+  for(let i = 1, j = 0; i < n; i++){
+    let bit = n >> 1; for(; j & bit; bit >>= 1) j ^= bit; j ^= bit;
+    if(i < j){ [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; }
+  }
+  for(let len = 2; len <= n; len <<= 1){
+    const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+    for(let i = 0; i < n; i += len){
+      let cr = 1, ci = 0;
+      for(let k = 0; k < len / 2; k++){
+        const a = i + k, b = a + len / 2;
+        const tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+        const nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr;
+      }
+    }
+  }
+}
+// Tono de la canción (como "10A" en la rueda Camelot de los DJ)
+const NOTAS = ['Do','Do♯','Re','Mi♭','Mi','Fa','Fa♯','Sol','La♭','La','Si♭','Si'];
+const CAM_MAY = ['8B','3B','10B','5B','12B','7B','2B','9B','4B','11B','6B','1B'];
+const CAM_MEN = ['5A','12A','7A','2A','9A','4A','11A','6A','1A','8A','3A','10A'];
+function detectarTono(buf){
+  const d = buf.getChannelData(0), sr = buf.sampleRate, N = 8192;
+  const win = new Float64Array(N); for(let i = 0; i < N; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1));
+  const croma = new Float64Array(12), re = new Float64Array(N), im = new Float64Array(N);
+  const ini = Math.floor(d.length * 0.05), fin = Math.floor(d.length * 0.95) - N;
+  if(fin <= ini) return null;
+  const hop = Math.max(N / 2, Math.floor((fin - ini) / 120));
+  const kMin = Math.ceil(55 * N / sr), kMax = Math.min(N / 2 - 1, Math.floor(1760 * N / sr));
+  const pcDe = new Int8Array(N / 2);
+  for(let k = kMin; k <= kMax; k++){ const m = Math.round(12 * Math.log2(k * sr / N / 440)) + 69; pcDe[k] = ((m % 12) + 12) % 12; }
+  for(let s = ini; s < fin; s += hop){
+    for(let i = 0; i < N; i++){ re[i] = d[s + i] * win[i]; im[i] = 0; }
+    fft(re, im);
+    const fr = new Float64Array(12);
+    for(let k = kMin; k <= kMax; k++) fr[pcDe[k]] += Math.sqrt(re[k] * re[k] + im[k] * im[k]);
+    const tot = fr.reduce((a, b) => a + b, 0);
+    if(tot > 0) for(let p = 0; p < 12; p++) croma[p] += fr[p] / tot;     // cada pedazo pesa igual
+  }
+  const MAY = [6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88], MEN = [6.33,2.68,3.52,5.38,2.60,3.53,2.54,4.75,3.98,2.69,3.34,3.17];
+  const corr = (perfil, t) => {
+    let ma = 0, mb = 0; for(let i = 0; i < 12; i++){ ma += croma[(i + t) % 12]; mb += perfil[i]; } ma /= 12; mb /= 12;
+    let num = 0, da = 0, db = 0;
+    for(let i = 0; i < 12; i++){ const a = croma[(i + t) % 12] - ma, b = perfil[i] - mb; num += a * b; da += a * a; db += b * b; }
+    return num / Math.sqrt(da * db || 1);
+  };
+  let mejor = {r: -2};
+  for(let t = 0; t < 12; t++){
+    const a = corr(MAY, t), b = corr(MEN, t);
+    if(a > mejor.r) mejor = {r: a, cam: CAM_MAY[t], nom: NOTAS[t] + ' mayor'};
+    if(b > mejor.r) mejor = {r: b, cam: CAM_MEN[t], nom: NOTAS[t] + ' menor'};
+  }
+  return mejor.cam ? mejor : null;
+}
+// ¿Combinan los tonos? (misma clave, vecinas en la rueda, o su relativa mayor/menor)
+function tonosCombinan(a, b){
+  const pa = /^(\d+)([AB])$/.exec(a || ''), pb = /^(\d+)([AB])$/.exec(b || '');
+  if(!pa || !pb) return null;
+  const na = +pa[1], nb = +pb[1], dif = Math.min((na - nb + 12) % 12, (nb - na + 12) % 12);
+  if(pa[2] === pb[2]) return dif <= 1;
+  return dif === 0;
+}
+// Onda de colores: azul = graves (bajo, bombo), naranja = medios (voz, guitarra), blanco = agudos (platillos)
+function analizarOnda(c){
+  if(ondas.has(c.id)) return Promise.resolve(ondas.get(c.id));
+  if(ondasEnCurso.has(c.id)) return ondasEnCurso.get(c.id);
+  const pr = (async () => {
+    let res = null;
+    try{
+      const SR = 11025, b = await archivoDe(c);
+      const buf = await new OfflineAudioContext(1, 1, SR).decodeAudioData(await b.arrayBuffer());
+      const len = buf.length, paso = Math.round(SR / ONDA_FPS), N = Math.floor(len / paso);
+      const banda = async t => {
+        const off = new OfflineAudioContext(1, len, SR), src = off.createBufferSource(); src.buffer = buf;
+        let n = src;
+        const f = (type, hz) => { const q = off.createBiquadFilter(); q.type = type; q.frequency.value = hz; n.connect(q); n = q; };
+        if(t === 'l'){ f('lowpass', 200); f('lowpass', 200); }
+        if(t === 'm'){ f('highpass', 200); f('lowpass', 2500); }
+        if(t === 'h'){ f('highpass', 2500); f('highpass', 2500); }
+        n.connect(off.destination); src.start();
+        const d = (await off.startRendering()).getChannelData(0), a = new Float32Array(N);
+        for(let i = 0; i < N; i++){ let e = 0; const o = i * paso; for(let j = 0; j < paso; j++){ const v = d[o + j]; e += v * v; } a[i] = Math.sqrt(e / paso); }
+        return a;
+      };
+      const bandas = {l: await banda('l'), m: await banda('m'), h: await banda('h')};
+      const peso = {l: 1, m: 0.78, h: 0.5};
+      res = {n: N, dur: len / SR};
+      for(const k of ['l','m','h']){
+        const a = bandas[k], ref = percentil(Array.from(a.filter((_, i) => i % 4 === 0)), 0.985) || 1, u = new Uint8Array(N);
+        for(let i = 0; i < N; i++) u[i] = Math.min(255, Math.round(255 * peso[k] * a[i] / ref));
+        res[k] = u;
+      }
+      if(!c.tono){ const t = detectarTono(buf); if(t){ c.tono = t.cam; c.tonoNom = t.nom; guardarCancion(c); guardarEstado(); } }
+      ondas.set(c.id, res);
+      if(ondas.size > 6) ondas.delete(ondas.keys().next().value);     // se guardan pocas en memoria
+    }catch(e){ res = null; }
+    ondasEnCurso.delete(c.id);
+    return res;
+  })();
+  ondasEnCurso.set(c.id, pr);
+  return pr;
+}
+// Rejilla de golpes de toda la canción (usa el análisis del principio y del final para que no se corra)
+function golpesDe(c){
+  if(c.rIni && c.rIni.p){
+    let p = c.rIni.p;
+    if(c.rFin && c.rFin.p){
+      const n = Math.round((c.rFin.f - c.rIni.f) / p);
+      const p2 = n > 8 ? (c.rFin.f - c.rIni.f) / n : 0;
+      if(p2 && Math.abs(p2 / p - 1) < 0.01) p = p2;
+    }
+    return {p, f: c.rIni.f};
+  }
+  if(c.bpm) return {p: 60 / c.bpm, f: 0, aprox: true};
+  return null;
+}
+
+let mixerAbierto = false, mxSeg = 12, mxLoop = null, mxLoopN = 0, mxA = null, mxB = null;
+function deckB(){ return otroDeck(); }
+function cancionB(){ return proxima && proxima.c && lista.includes(proxima.c) ? proxima.c : null; }
+function pintarDeckMx(cual, c, deck){
+  const caja = $(cual === 'A' ? 'mxInfoA' : 'mxInfoB');
+  const por = caja.querySelector('.por'), u = c ? urlMini(c) : '';
+  por.innerHTML = u ? `<img src="${u}" alt="">` : ico('note');
+  caja.querySelector('.mxT').textContent = c ? titulo(c) : (cual === 'B' ? 'Sin siguiente canción' : 'Sin canción');
+  caja.querySelector('.mxAr').textContent = c ? (c.artista || '') : '';
+  const g = c ? golpesDe(c) : null, rate = deck ? (deck.playbackRate || 1) : 1;
+  caja.querySelector('.mxBpm').textContent = g ? (60 / g.p * rate).toFixed(rate === 1 ? 0 : 1) + ' bpm' : (c && c.bpm ? c.bpm + ' bpm' : '— bpm');
+  const tn = caja.querySelector('.mxTono');
+  tn.textContent = c && c.tono ? c.tono : '…'; tn.title = c && c.tonoNom ? 'Tono: ' + c.tonoNom : 'Calculando el tono';
+  const a = lista[actual], b = cancionB(), ok = a && b ? tonosCombinan(a.tono, b.tono) : null;
+  const cp = $('mxCompat');
+  if(!a || !b){ cp.textContent = ''; return; }
+  const ga = golpesDe(a), gb = golpesDe(b);
+  const ta = ga ? tempoDJ(60 / ga.p) : 0, tb = gb ? tempoDJ(60 / gb.p) : 0;
+  const vel = ta && tb ? Math.abs(tb / ta - 1) : null;
+  cp.innerHTML = '';
+  const s1 = document.createElement('span'), s2 = document.createElement('span');
+  s1.textContent = ok === null ? '🎼 Tono: calculando…' : ok ? '🎼 Tonos que combinan' : '🎼 Tonos distintos (puede chocar)';
+  s1.className = ok ? 'bien' : ok === false ? 'mal' : '';
+  s2.textContent = vel === null ? '🥁 Velocidad: calculando…' : vel <= 0.06 ? '🥁 Velocidad parecida: se unen los golpes' : '🥁 Velocidad muy distinta';
+  s2.className = vel !== null && vel <= 0.06 ? 'bien' : vel !== null ? 'mal' : '';
+  cp.append(s1, s2);
+}
+function tamCanvas(cv){
+  const r = cv.getBoundingClientRect(), dpr = devicePixelRatio || 1;
+  const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+  if(cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; }
+  return {w, h, dpr};
+}
+function dibujarOnda(cv, c, t, apagada){
+  const {w, h, dpr} = tamCanvas(cv), x = cv.getContext('2d');
+  x.clearRect(0, 0, w, h);
+  const xP = Math.round(w * 0.2), pps = w / mxSeg, mid = h / 2;
+  const o = c ? ondas.get(c.id) : null;
+  if(!c){ return; }
+  if(!o){ x.fillStyle = 'rgba(255,255,255,.6)'; x.font = `${15 * dpr}px sans-serif`; x.textAlign = 'center'; x.fillText('Analizando la canción…', w / 2, mid); return; }
+  x.globalAlpha = apagada ? 0.5 : 1;
+  // compases y golpes
+  const g = golpesDe(c);
+  if(g){
+    const t0 = t - xP / pps, t1 = t + (w - xP) / pps;
+    let k = Math.ceil((t0 - g.f) / g.p);
+    for(let bt = g.f + k * g.p; bt <= t1; bt += g.p, k++){
+      const xx = xP + (bt - t) * pps; if(xx < 0) continue;
+      const compas = ((k % 4) + 4) % 4 === 0;
+      x.fillStyle = compas ? 'rgba(255,255,255,.38)' : 'rgba(255,255,255,.12)';
+      x.fillRect(Math.round(xx), 0, compas ? 2 * dpr : dpr, h);
+    }
+  }
+  // onda: tres capas (graves, medios, agudos)
+  const capas = [['l', '#2f7bff'], ['m', '#ff9b21'], ['h', '#ffffff']];
+  const esc = (h / 2 - 4 * dpr) / 255, paso = Math.max(1, Math.round(dpr));
+  for(const [k, col] of capas){
+    x.fillStyle = col; const a = o[k];
+    for(let px = 0; px < w; px += paso){
+      const i = Math.floor((t + (px - xP) / pps) * ONDA_FPS);
+      if(i < 0 || i >= o.n) continue;
+      const v = a[i] * esc; if(v < 0.5) continue;
+      x.fillRect(px, mid - v, paso, v * 2);
+    }
+  }
+  // repetición (loop)
+  if(mxLoop && c === lista[actual]){
+    const x1 = xP + (mxLoop.ini - t) * pps, x2 = xP + (mxLoop.fin - t) * pps;
+    x.globalAlpha = 1; x.strokeStyle = '#19d3ff'; x.lineWidth = 3 * dpr; x.strokeRect(x1, 2 * dpr, x2 - x1, h - 4 * dpr);
+    x.fillStyle = 'rgba(25,211,255,.10)'; x.fillRect(x1, 0, x2 - x1, h);
+  }
+  // línea verde: lo que suena ahora
+  x.globalAlpha = 1; x.fillStyle = '#2bff5a'; x.fillRect(xP - dpr, 0, 3 * dpr, h);
+}
+function dibujarResumen(){
+  const cv = $('mxResumen'), c = lista[actual];
+  const {w, h} = tamCanvas(cv), x = cv.getContext('2d'); x.clearRect(0, 0, w, h);
+  const o = c ? ondas.get(c.id) : null; if(!o) return;
+  const mid = h / 2, esc = (h / 2) / 255, dur = audio.duration || o.dur;
+  for(const [k, col] of [['l', '#2f7bff'], ['m', '#ff9b21'], ['h', '#ffffff']]){
+    x.fillStyle = col;
+    for(let px = 0; px < w; px++){
+      const i0 = Math.floor(px / w * o.n), i1 = Math.max(i0 + 1, Math.floor((px + 1) / w * o.n));
+      let m = 0; for(let i = i0; i < i1; i++) if(o[k][i] > m) m = o[k][i];
+      const v = m * esc; x.fillRect(px, mid - v, 1, v * 2);
+    }
+  }
+  const xp = (audio.currentTime / dur) * w;
+  x.fillStyle = 'rgba(0,0,0,.45)'; x.fillRect(0, 0, xp, h);
+  x.fillStyle = '#2bff5a'; x.fillRect(xp - 1, 0, 3, h);
+}
+function cuadroMixer(){
+  if(!mixerAbierto) return;
+  requestAnimationFrame(cuadroMixer);
+  const a = lista[actual], b = cancionB();
+  if(a !== mxA){ mxA = a; mxLoop = null; pintarLoop(); pintarDeckMx('A', a, audio); if(a){ prepararBordes(a).then(() => pintarDeckMx('A', lista[actual], audio)); analizarOnda(a).then(() => { pintarDeckMx('A', lista[actual], audio); pintarDeckMx('B', cancionB(), null); }); } }
+  if(b !== mxB){ mxB = b; pintarDeckMx('B', b, null); if(b){ prepararBordes(b).then(() => pintarDeckMx('B', cancionB(), null)); analizarOnda(b).then(() => pintarDeckMx('B', cancionB(), null)); } }
+  revisarLoop();
+  dibujarOnda($('mxOndaA'), a, audio.currentTime || 0, false);
+  const dB = deckB(), suenaB = b && (mezclando || !dB.paused);
+  dibujarOnda($('mxOndaB'), b, suenaB ? dB.currentTime : (b ? (b.ini || 0) : 0), !suenaB);
+  $('mxEnEspera').textContent = b ? (suenaB ? 'sonando' : 'en espera · entra aquí') : '';
+  if(!cuadroMixer.n || ++cuadroMixer.n % 10 === 0){
+    cuadroMixer.n = cuadroMixer.n || 1;
+    dibujarResumen();
+    const dur = audio.duration || 0;
+    $('mxTiempoA').textContent = a ? fmt(audio.currentTime) + ' / ' + fmt(dur) : '';
+    $('mxTiempoB').textContent = b && dB.duration ? fmt(suenaB ? dB.currentTime : (b.ini || 0)) + ' / ' + fmt(dB.duration) : '';
+    $('mxPlay').innerHTML = ico(audio.paused ? 'play' : 'pause');
+  }
+}
+// Repetir un pedazo de N compases (loop), unido a los golpes
+function revisarLoop(){
+  if(!mxLoop) return;
+  if(lista[actual] !== mxLoop.c){ mxLoop = null; pintarLoop(); return; }
+  const t = audio.currentTime;
+  if(t >= mxLoop.fin) audio.currentTime = mxLoop.ini + (t - mxLoop.fin);
+}
+setInterval(revisarLoop, 40);     // también con el mixer cerrado o la pantalla apagada
+function ponerLoop(n){
+  mxLoopN = n; const c = lista[actual];
+  if(!n || !c){ mxLoop = null; pintarLoop(); return; }
+  const g = golpesDe(c) || {p: 0.5, f: 0};
+  const t = audio.currentTime, ini = g.f + Math.floor((t - g.f) / g.p + 0.0001) * g.p;
+  mxLoop = {c, ini: Math.max(0, ini), fin: Math.max(0, ini) + n * 4 * g.p};
+  pintarLoop();
+}
+function pintarLoop(){ $('mxLoop').textContent = mxLoop ? `🔁 ${mxLoopN} compás${mxLoopN === 1 ? '' : 'es'} ▾` : '🔁 Repetir ▾'; $('mxLoop').classList.toggle('on', !!mxLoop); }
+$('mxLoop').onclick = () => abrirHoja('Repetir un pedazo (loop)', 'Se repite unido a los golpes, desde el golpe que está sonando', [
+  ...[1, 2, 4, 8, 16].map(n => ({t: `🔁  ${n} compás${n === 1 ? '' : 'es'}${n === 8 ? '  (como en los DJ)' : ''}`, f: () => ponerLoop(n)})),
+  {t: '⏹  Quitar la repetición', f: () => ponerLoop(0)},
+]);
+function abrirMixer(){
+  if(actual < 0) return toast('Primero elige una canción');
+  armarAudio();
+  mixerAbierto = true; mxA = mxB = undefined;
+  $('mixer').classList.add('ver'); marcarHist();
+  if(!proxima && !mezclando) prepararSiguiente();
+  try{ AndroidJAT.colorBarra('#0e0f13', true); }catch(e){}
+  requestAnimationFrame(cuadroMixer);
+}
+function cerrarMixer(){ mixerAbierto = false; $('mixer').classList.remove('ver'); barraApp(); }
+$('mxCerrar').onclick = cerrarMixer;
+$('mxPlay').onclick = play;
+$('mxAtr').onclick = () => { audio.currentTime = Math.max(0, audio.currentTime - 5); };
+$('mxAde').onclick = () => { audio.currentTime = Math.min((audio.duration || 0) - 0.5, audio.currentTime + 5); };
+$('mxZmas').onclick = () => { mxSeg = Math.max(4, mxSeg / 1.5); };
+$('mxZmenos').onclick = () => { mxSeg = Math.min(60, mxSeg * 1.5); };
+$('mxMezclar').onclick = () => {
+  if(mezclando) return toast('Ya se está mezclando');
+  const b = cancionB(); if(!b) return toast('No hay siguiente canción');
+  if(audio.paused) return toast('Primero dale ▶ a la canción de arriba');
+  mxLoop = null; pintarLoop();
+  mezclarA(lista.indexOf(b), djSeg || 8, true);
+  toast(`⇄ Mezclando en ${djSeg || 8} s`);
+};
+$('mxElegir').onclick = () => {
+  const a = lista[actual], ga = a ? golpesDe(a) : null, ta = ga ? tempoDJ(60 / ga.p) : (a && a.bpm ? tempoDJ(a.bpm) : 0);
+  const cand = lista.map((c, i) => ({c, i})).filter(x => x.i !== actual);
+  const puntos = x => {
+    const tb = x.c.bpm ? tempoDJ(x.c.bpm) : 0, vel = ta && tb ? Math.abs(tb / ta - 1) : 1;
+    const ok = tonosCombinan(a && a.tono, x.c.tono);
+    return (vel <= 0.06 ? 0 : 2 + vel) + (ok ? 0 : ok === false ? 1 : 0.5);
+  };
+  cand.sort((x, y) => puntos(x) - puntos(y));
+  const cont = document.createElement('div');
+  cand.slice(0, 80).forEach(x => {
+    const f = filaCancion(x.i, () => {
+      cerrarHoja();
+      if(mezclando) return toast('Espera a que termine la mezcla');
+      proxima = null; prepararSiguiente(x.i); toast('🎯 Siguiente: ' + titulo(x.c));
+    });
+    const tb = x.c.bpm ? tempoDJ(x.c.bpm) : 0, ok = tonosCombinan(a && a.tono, x.c.tono);
+    const info = document.createElement('div'); info.className = 'x';
+    info.textContent = [tb ? `🥁 ${x.c.bpm} bpm` + (ta && Math.abs(tb / ta - 1) <= 0.06 ? ' ✔' : '') : '', x.c.tono ? `🎼 ${x.c.tono}` + (ok ? ' ✔' : '') : ''].filter(Boolean).join(' · ');
+    f.querySelector('.tx').append(info); f.querySelector('.ib').remove();
+    cont.append(f);
+  });
+  abrirHoja('Elegir la siguiente canción', 'Primero las que mejor se mezclan (velocidad y tono parecidos ✔)', [cont]);
+};
+// Arrastrar la onda de arriba para moverse en la canción; tocar el resumen para saltar
+(() => {
+  const cv = $('mxOndaA'); let x0 = null, t0 = 0;
+  cv.addEventListener('pointerdown', e => { x0 = e.clientX; t0 = audio.currentTime; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointermove', e => { if(x0 === null) return; const pps = cv.getBoundingClientRect().width / mxSeg; audio.currentTime = Math.max(0, Math.min((audio.duration || 1) - 0.3, t0 - (e.clientX - x0) / pps)); });
+  cv.addEventListener('pointerup', () => { x0 = null; });
+  $('mxResumen').addEventListener('click', e => { const r = e.currentTarget.getBoundingClientRect(); if(audio.duration) audio.currentTime = (e.clientX - r.left) / r.width * audio.duration; });
+})();
+
 /* ---------- Transmitir: elegir dónde suena (celular, parlante o audífonos Bluetooth) ---------- */
 function salidaActual(){
   if(!APP) return null;
@@ -2746,6 +3114,7 @@ function menuSalida(){
   abrirHoja('Transmitir a otro aparato', '', ops);
 }
 $('bSalida').onclick = menuSalida;
+$('bMixer').onclick = abrirMixer;
 $('sonandoEn').onclick = menuSalida;
 if(APP){
   setInterval(() => { if($('pantalla').classList.contains('ver') && !document.hidden) pintarSalida(); }, 4000);
@@ -2797,6 +3166,7 @@ document.querySelectorAll('#mosaico button').forEach(b => b.onclick = () => {
 function atras(){
   if($('hoja').classList.contains('ver')){ cerrarHoja(); return true; }
   if(flotAbierto() && letraModo.completa){ cerrarLetra(); return true; }
+  if(mixerAbierto){ cerrarMixer(); return true; }
   if($('pantalla').classList.contains('ver')){ cerrarPantalla(); return true; }
   if(vistaAct === 'ajustes'){ irVista(vistaPrev); return true; }
   if(vistaAct === 'inicio' && vista.por !== 'todas'){ vista = {por: 'todas', grupo: null}; pintarLista(); guardarEstado(); return true; }
@@ -2885,6 +3255,7 @@ $('bMenu').onclick = () => abrirHoja('Más opciones', '', [
   {t: APP ? '🔄  Buscar canciones nuevas' : '📁  Elegir carpeta de música', f: () => $('bCarpeta').click()},
   {t: '🖼  Buscar carátulas que faltan', f: () => buscarCaratulas(true)},
   {t: '🏷  Clasificar música (género y ritmo)', f: () => { irVista('explorar'); $('bClasificar').click(); }},
+  {t: '🎛  Mixer (ondas, BPM, tono, loop)', f: abrirMixer},
   {t: '📡  Transmitir a otro aparato (Bluetooth)', f: menuSalida},
   {t: '🎧  Sonido, ecualizador y modo DJ', f: () => { if(actual < 0) return toast('Primero elige una canción'); abrirPantalla(); }},
   {t: '💾  Guardar respaldo', f: () => $('bResp').click()},
