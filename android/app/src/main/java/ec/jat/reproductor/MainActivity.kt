@@ -215,6 +215,19 @@ class MainActivity : Activity() {
             }
         }
 
+        /** Color de la barra de arriba del celular (el del fondo del reproductor). */
+        @JavascriptInterface
+        fun colorBarra(color: String, oscuro: Boolean) {
+            main.post {
+                try {
+                    window.statusBarColor = Color.parseColor(color)
+                    @Suppress("DEPRECATION")
+                    window.decorView.systemUiVisibility = if (oscuro) View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+                        else View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+                } catch (e: Exception) {}
+            }
+        }
+
         @JavascriptInterface
         fun abrirAjustes() { main.post { startActivity(Intent(this@MainActivity, AjustesActivity::class.java)) } }
     }

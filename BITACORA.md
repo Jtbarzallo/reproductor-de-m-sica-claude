@@ -5,6 +5,18 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 21 nov 2026 (noche) — Carátula grande y fondo del color de la carátula
+**Pedido por Jorge:** carátula grande y que el fondo del reproductor cambie al color de la carátula (como en Deezer).
+
+**Novedades**
+- En "Reproduciendo" la **carátula es grande** (casi todo el ancho de la pantalla), con sombra.
+- **El fondo toma un color de la carátula** de cada canción: el reproductor saca el color más vivo y que más se ve en la portada y pinta todo el fondo con él. Cambia suave al pasar de canción.
+- Las letras, botones y barras se ponen **negras o blancas solas** según el color, para que siempre se lean bien.
+- En la app, la **barra de arriba del celular** (hora y batería) también toma ese color mientras el reproductor está abierto.
+- Si la canción no tiene carátula, queda el fondo claro con el cuadro morado de siempre.
+
+---
+
 ## 21 nov 2026 (noche) — Fuera los mensajes de voz de WhatsApp
 **Pedido por Jorge:** que los mensajes de voz de WhatsApp no salgan en el reproductor.
 

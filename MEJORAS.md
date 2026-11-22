@@ -19,11 +19,13 @@
 - [x] Búsqueda por título, artista, álbum o género (21 nov)
 - [x] Carátulas automáticas desde internet (21 nov): iTunes → Deezer → MusicBrainz, solo si título y artista coinciden; botón para buscar las que faltan y para una canción; también en Android Auto; van en el respaldo
 - [x] Mensajes de voz de WhatsApp fuera de la lista (21 nov), en la app, la web y Android Auto; no se borran del celular
+- [x] Carátula grande y fondo del color de la carátula (21 nov), también la barra de arriba del celular en la app
 
 ## Pendientes / ideas
 - [ ] Favoritas también en Android Auto (una pestaña "Favoritas" en el carro)
 - [ ] Deslizar hacia abajo para cerrar el reproductor completo
 - [ ] Elegir a mano entre varias carátulas cuando la automática no es la correcta
+- [ ] Pasar de canción deslizando la carátula a los lados (como Deezer)
 - [ ] Cola "Reproducir a continuación" desde el ⋮ de cada canción
 - [ ] Entrar en el inicio de un compás/frase (no solo en un golpe)
 - [ ] Mezclar también canciones de velocidades muy distintas con un efecto de transición (eco/filtro)
