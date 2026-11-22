@@ -467,7 +467,7 @@ function leerTodas(){
 function estado(){
   return { app:'Reproductor de Música JAT', version:1, fecha:new Date().toISOString(),
     orden: lista.map(c => c.nombre),
-    etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm).map(c => [c.nombre, {titulo:c.titulo||'', artista:c.artista||'', album:c.album||'', anio:c.anio||'', genero:c.genero||'', bpm:c.bpm||0, pulso:c.pulso||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
+    etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm || c.caratula).map(c => [c.nombre, {titulo:c.titulo||'', caratula:c.caratula||'', artista:c.artista||'', album:c.album||'', anio:c.anio||'', genero:c.genero||'', bpm:c.bpm||0, pulso:c.pulso||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
     vista, favoritas: lista.filter(c => c.fav).map(c => c.nombre),
     clave: claveGuardada(), actual: lista[actual]?.nombre || null,
     posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg, eq: eqVals, ocho: ochoSeg };
@@ -500,7 +500,7 @@ function aplicarEstado(e, conPos, soloLista = false){
   if(e.etiquetas) lista.forEach(c => {
     const t = e.etiquetas[c.nombre]; if(!t) return;
     let cambio = false;
-    for(const k of ['titulo','artista','album','anio','genero','bpm','pulso','letra','letraSync']) if(t[k] && !c[k]){ c[k] = t[k]; cambio = true; }
+    for(const k of ['titulo','artista','album','anio','genero','bpm','pulso','letra','letraSync','caratula']) if(t[k] && !c[k]){ c[k] = t[k]; cambio = true; }
     if(cambio) guardarCancion(c);
   });
   if(Array.isArray(e.favoritas)){        // favoritas: solo se marcan las que nunca se tocaron en este equipo
@@ -1420,6 +1420,7 @@ async function leerPendientes(){
     pintarLista();
     if(lista[actual] === c) mostrarActual();
   }
+  buscarCaratulas();     // las que no traen portada: se busca la carátula en internet
 }
 let urlPortada = null;
 function mostrarActual(){
@@ -1431,11 +1432,13 @@ function mostrarActual(){
   if(urlPortada){ URL.revokeObjectURL(urlPortada); urlPortada = null; }
   pintarMini();
   const d = $('disco');
-  if(c.portada){ urlPortada = URL.createObjectURL(c.portada); d.style.backgroundImage = `url(${urlPortada})`; d.classList.add('portada'); }
+  if(c.portada) urlPortada = URL.createObjectURL(c.portada);
+  const img = urlPortada || c.caratula || '';
+  if(img){ d.style.backgroundImage = `url("${img}")`; d.classList.add('portada'); }
   else { d.style.backgroundImage = ''; d.classList.remove('portada'); }
   if('mediaSession' in navigator){
     const m = {title: titulo(c), artist: c.artista || 'Reproductor JAT', album: c.album || ''};
-    if(urlPortada) m.artwork = [{src: urlPortada, sizes:'512x512', type: c.portada.type}];
+    if(img) m.artwork = [{src: img, sizes: '512x512'}];
     try{ navigator.mediaSession.metadata = new MediaMetadata(m); }catch(e){}
   }
 }
@@ -1617,7 +1620,7 @@ document.querySelectorAll('#porChips button').forEach(b => b.onclick = () => { v
 /* ---------- Filas de canciones (estilo lista con portada) ---------- */
 const miniaturas = new Map();          // id de canción → dirección de su portada (se crea una sola vez)
 function urlMini(c){
-  if(!c.portada) return '';
+  if(!c.portada) return c.caratula || '';
   let u = miniaturas.get(c.id);
   if(!u || u.b !== c.portada){ if(u) URL.revokeObjectURL(u.url); u = {b: c.portada, url: URL.createObjectURL(c.portada)}; miniaturas.set(c.id, u); }
   return u.url;
@@ -2253,6 +2256,118 @@ function iniciarApp(){
   window.appOrden = o => { if(o === 'play') play(); else if(o === 'sig') siguiente(false); else if(o === 'ant') anterior(); else if(o === 'pausa') audio.pause(); };
 }
 
+/* ---------- Carátulas desde internet (iTunes y Deezer) para las canciones que no traen portada ---------- */
+function jsonp(url, ms = 12000){
+  return new Promise((ok, mal) => {
+    const cb = 'jatcb' + Date.now() + Math.floor(Math.random() * 1e6);
+    const sc = document.createElement('script');
+    const t = setTimeout(() => { limpiar(); mal(new Error('tiempo')); }, ms);
+    function limpiar(){ clearTimeout(t); delete window[cb]; sc.remove(); }
+    window[cb] = d => { limpiar(); ok(d); };
+    sc.onerror = () => { limpiar(); mal(new Error('red')); };
+    sc.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
+    document.head.append(sc);
+  });
+}
+async function itunes(term){
+  const url = 'https://itunes.apple.com/search?media=music&entity=song&limit=15&term=' + encodeURIComponent(term);
+  let d;
+  try{ const r = await fetch(url); if(!r.ok) throw 0; d = await r.json(); }
+  catch(e){ d = await jsonp(url); }
+  return (d.results || []).filter(x => x.artworkUrl100).map(x => ({titulo: x.trackName, artista: x.artistName, album: x.collectionName,
+    img: x.artworkUrl100.replace(/\/\d+x\d+bb\./, '/600x600bb.'), dur: x.trackTimeMillis ? x.trackTimeMillis / 1000 : 0}));
+}
+async function deezer(term){
+  const d = await jsonp('https://api.deezer.com/search?output=jsonp&limit=15&q=' + encodeURIComponent(term));
+  return (d.data || []).filter(x => x.album && (x.album.cover_xl || x.album.cover_big)).map(x => ({titulo: x.title, artista: x.artist ? x.artist.name : '',
+    album: x.album.title, img: x.album.cover_xl || x.album.cover_big, dur: x.duration || 0}));
+}
+async function musicbrainz(term){   // tercera opción: MusicBrainz + Cover Art Archive
+  const d = await mbJSON('recording/?limit=10&query=' + encodeURIComponent(term));
+  if(!d) throw new Error('red');
+  return (d.recordings || []).map(x => {
+    const rels = x.releases || [];
+    const rel = rels.find(r => r['release-group'] && r['release-group']['primary-type'] === 'Album') || rels[0];
+    const rg = rel && rel['release-group'];
+    return rg ? {titulo: x.title, artista: (x['artist-credit'] || []).map(a => a.name).join(' '), album: rel.title,
+      img: 'https://coverartarchive.org/release-group/' + rg.id + '/front-500'} : null;
+  }).filter(Boolean);
+}
+// Elige el resultado que de verdad es la canción: el título tiene que coincidir, y el artista también (si lo sabemos)
+function elegirCaratula(res, c){
+  const ref = ' ' + normal([c.titulo, c.artista, c.album, c.nombre].filter(Boolean).join(' ')) + ' ';
+  const tiene = p => ref.includes(' ' + p + ' ');
+  const alb = normal(c.album);
+  let mejor = null, mejorP = -1;
+  res.forEach(x => {
+    const tt = normal(limpiarTexto(x.titulo || '')).split(' ').filter(Boolean), ta = normal(x.artista).split(' ').filter(Boolean);
+    if(!tt.length) return;
+    const cubreT = tt.filter(tiene).length / tt.length, cubreA = ta.length ? ta.filter(tiene).length / ta.length : 0;
+    if(cubreT < 0.75) return;
+    if(cubreA < 0.5 && !(cubreT === 1 && tt.length >= 3)) return;   // sin el artista, solo si el título es largo y calza completo
+    // desempate: que el artista sea el de la etiqueta (no el autor original) y que el álbum se parezca
+    const enArt = (c.artista && ta.length) ? ta.filter(w => (' ' + normal(c.artista) + ' ').includes(' ' + w + ' ')).length / ta.length : 0;
+    const tal = normal(x.album).split(' ').filter(Boolean);
+    const enAlb = (alb && tal.length) ? tal.filter(w => (' ' + alb + ' ').includes(' ' + w + ' ')).length / tal.length : 0;
+    const p = cubreT * 3 + cubreA * 3 + enArt * 2 + (enAlb >= 0.6 ? 1.5 : 0);
+    if(p > mejorP){ mejorP = p; mejor = x; }
+  });
+  return mejor;
+}
+// Busca la carátula de una canción. Devuelve {url, blob} · null si no hay · {error} si no hay internet
+async function caratulaDe(c){
+  const {pares, libres} = combinacionesLetra(c);
+  const terminos = [...pares.map(p => p.artista + ' ' + p.cancion), ...libres].slice(0, 4);
+  let huboRed = false, x = null;
+  for(const fuente of [itunes, deezer, musicbrainz]){
+    for(const t of terminos){
+      try{ x = elegirCaratula(await fuente(t), c); huboRed = true; }catch(e){ x = null; }
+      if(x) break;
+      await espera(250);
+    }
+    if(x) break;
+  }
+  if(!x) return huboRed ? null : {error: true};
+  let blob = null;
+  if(/coverartarchive/.test(x.img)){   // MusicBrainz: hay que confirmar que la carátula existe
+    try{ const r = await fetch(x.img); if(!r.ok) return null; blob = await r.blob(); if(!blob.size) return null; }catch(e){ return null; }
+    return {url: x.img, blob};
+  }
+  try{ const r = await fetch(x.img); if(r.ok){ const b = await r.blob(); if(b.size > 500 && /^image\//.test(b.type)) blob = b; } }catch(e){}  // si se puede, se guarda para verla sin internet
+  return {url: x.img, blob};
+}
+let buscandoCar = false;
+function sinCaratula(c){ return !c.portada && !c.caratula; }
+async function buscarCaratulas(todas = false){
+  if(buscandoCar){ if(todas) toast('🖼 Ya estoy buscando carátulas…'); return; }
+  buscandoCar = true;
+  const pend = lista.filter(c => c.leido && sinCaratula(c) && (todas || !c.carV));
+  let ok = 0, sinRed = false;
+  for(let k = 0; k < pend.length; k++){
+    const c = pend[k]; if(!lista.includes(c) || !sinCaratula(c)) continue;
+    if(todas) toast(`🖼 Buscando carátulas: ${k + 1} de ${pend.length}…`, 60000);
+    const r = await caratulaDe(c);
+    if(r && r.error){ sinRed = true; break; }              // sin internet: se vuelve a intentar la próxima vez
+    c.carV = 1;
+    if(r){ c.caratula = r.url; if(r.blob) c.portada = r.blob; ok++; pintarLista(); if(lista[actual] === c) mostrarActual(); }
+    guardarCancion(c);
+    await espera(300);
+  }
+  if(ok) guardarEstado();
+  buscandoCar = false;
+  if(todas) toast(sinRed ? '⚠ Sin internet: no se pudieron buscar las carátulas'
+    : `🖼 Listo: ${ok} carátula${ok === 1 ? '' : 's'} encontrada${ok === 1 ? '' : 's'}` + (pend.length - ok ? ` · ${pend.length - ok} sin encontrar` : ''), 4000);
+}
+async function caratulaUna(i){
+  const c = lista[i]; if(!c) return;
+  toast('🖼 Buscando carátula…', 20000);
+  const r = await caratulaDe(c);
+  if(!r || r.error){ toast(r ? '⚠ Sin internet' : 'No encontré la carátula de esta canción', 3000); return; }
+  c.carV = 1; c.caratula = r.url; if(r.blob) c.portada = r.blob;
+  guardarCancion(c); pintarLista(); if(lista[actual] === c) mostrarActual(); guardarEstado();
+  toast('🖼 Carátula encontrada');
+}
+
 /* ---------- Pantallas: menú de abajo, mini reproductor, hoja de opciones ---------- */
 let vistaAct = 'inicio', vistaPrev = 'inicio';
 const TITULOS = {inicio: 'Mi música', explorar: 'Explorar', favoritos: 'Canciones favoritas', buscar: 'Búsqueda', ajustes: 'Ajustes'};
@@ -2322,7 +2437,7 @@ function ponerFav(i, si, aviso = true){
 }
 $('miniFav').onclick = $('bFavP').onclick = () => { if(actual >= 0) ponerFav(actual, !lista[actual].fav); };
 
-function toast(t){ const d = $('toast'); d.textContent = t; d.classList.add('ver'); clearTimeout(toast.t); toast.t = setTimeout(() => d.classList.remove('ver'), 2300); }
+function toast(t, ms = 2300){ const d = $('toast'); d.textContent = t; d.classList.add('ver'); clearTimeout(toast.t); toast.t = setTimeout(() => d.classList.remove('ver'), ms); }
 
 // Hoja de opciones que sube desde abajo
 function abrirHoja(tit, sub, ops){
@@ -2355,6 +2470,7 @@ function menuCancion(i){
       if(!flotAbierto()) $('bLetra').click();
     }},
   ];
+  ops.push({t: sinCaratula(c) ? '🖼  Buscar carátula' : '🖼  Buscar otra vez la carátula', f: () => { if(c.caratula){ delete c.caratula; if(c.carV) delete c.portada; } caratulaUna(i); }});
   if(vistaAct === 'inicio' && vista.por === 'todas' && i > 0) ops.push({t: '⬆  Subir en la lista', f: () => mover(i, -1)});
   ops.push({t: '🗑  Quitar de la lista', f: () => quitar(i)});
   abrirHoja(titulo(c), [c.artista, c.album].filter(Boolean).join(' · '), ops);
@@ -2364,6 +2480,7 @@ $('bMenuP').onclick = () => { if(actual >= 0) menuCancion(actual); };
 // ⋮ de arriba
 $('bMenu').onclick = () => abrirHoja('Más opciones', '', [
   {t: APP ? '🔄  Buscar canciones nuevas' : '📁  Elegir carpeta de música', f: () => $('bCarpeta').click()},
+  {t: '🖼  Buscar carátulas que faltan', f: () => buscarCaratulas(true)},
   {t: '🏷  Clasificar música (género y ritmo)', f: () => { irVista('explorar'); $('bClasificar').click(); }},
   {t: '🎧  Sonido, ecualizador y modo DJ', f: () => { if(actual < 0) return toast('Primero elige una canción'); abrirPantalla(); }},
   {t: '💾  Guardar respaldo', f: () => $('bResp').click()},

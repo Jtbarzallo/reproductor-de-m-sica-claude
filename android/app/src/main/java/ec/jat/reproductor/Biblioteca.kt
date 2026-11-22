@@ -27,6 +27,7 @@ data class Cancion(
     val pulso: Int,
     val carpeta: String,
     val duracionMs: Long,
+    val caratula: String = "",   // carátula encontrada en internet por el reproductor (si la canción no trae)
 )
 
 /**
@@ -136,6 +137,7 @@ object Biblioteca {
                             pulso = web?.optInt("pulso", 0) ?: 0,
                             carpeta = carpeta.ifEmpty { "Carpeta principal" },
                             duracionMs = l(MediaStore.Audio.Media.DURATION),
+                            caratula = w("caratula").takeIf { it.startsWith("https://") }.orEmpty(),
                         )
                     )
                 }
@@ -267,7 +269,7 @@ object Biblioteca {
                     .setAlbumTitle(c.album.ifEmpty { null })
                     .setSubtitle(sub.ifEmpty { null })
                     .setGenre(c.genero.ifEmpty { null })
-                    .setArtworkUri(if (c.albumId > 0) artUri(c) else null)
+                    .setArtworkUri(if (c.caratula.isNotEmpty()) Uri.parse(c.caratula) else if (c.albumId > 0) artUri(c) else null)
                     .setIsBrowsable(false)
                     .setIsPlayable(true)
                     .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)

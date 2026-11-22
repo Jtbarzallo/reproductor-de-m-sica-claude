@@ -5,6 +5,22 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 21 nov 2026 (noche) — Carátulas automáticas
+**Pedido por Jorge:** que el reproductor encuentre las carátulas de las canciones que salen sin portada (cuadro morado con la nota).
+
+**Novedades**
+- Las canciones que **no traen portada** buscan su carátula **solas en internet** (iTunes; si no está, Deezer; y si tampoco, MusicBrainz). Se hace en segundo plano, una por una, sin molestar.
+- Solo acepta la carátula si **el título y el artista coinciden** con la canción, para no poner una portada equivocada. Si hay varias versiones, prefiere la del artista de la etiqueta (por ejemplo la versión de Tamara y no la original de Roberto Carlos).
+- **⋮ de arriba → "🖼 Buscar carátulas que faltan"**: vuelve a intentar todas las que no se encontraron, mostrando el avance.
+- **⋮ de cada canción → "🖼 Buscar carátula"** (o "Buscar otra vez la carátula" si salió una que no te gusta).
+- La carátula se guarda dentro de la app para verla **sin internet**.
+- **Android Auto:** en la pantalla del carro también sale la carátula encontrada.
+- Si no hay internet, no se marca nada: se vuelve a intentar sola la próxima vez.
+
+**Respaldo (regla fija):** la dirección de cada carátula encontrada va en el archivo de respaldo (💾) y en la copia automática de Descargas/ReproductorJAT. Al cargar el respaldo vuelven todas sin buscarlas otra vez.
+
+---
+
 ## 21 nov 2026 — Nueva pantalla estilo "Canciones favoritas"
 **Pedido por Jorge:** que el reproductor (web y app) se vea como la captura que le gustó (lista con portadas, barra oscura abajo y menú de 4 botones).
 

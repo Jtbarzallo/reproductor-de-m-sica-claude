@@ -17,10 +17,12 @@
 - [x] Pantalla nueva estilo "Canciones favoritas" (21 nov): menú de abajo (Inicio, Explorar, Favoritos, Búsqueda), lista con portadas y ⋮, mini reproductor oscuro, reproductor a pantalla completa, botón morado de aleatorio. En la web y en la app
 - [x] Favoritas con ❤ (21 nov): sección Favoritos, agregar varias con buscador, se reproduce dentro de las favoritas; van en el respaldo
 - [x] Búsqueda por título, artista, álbum o género (21 nov)
+- [x] Carátulas automáticas desde internet (21 nov): iTunes → Deezer → MusicBrainz, solo si título y artista coinciden; botón para buscar las que faltan y para una canción; también en Android Auto; van en el respaldo
 
 ## Pendientes / ideas
 - [ ] Favoritas también en Android Auto (una pestaña "Favoritas" en el carro)
 - [ ] Deslizar hacia abajo para cerrar el reproductor completo
+- [ ] Elegir a mano entre varias carátulas cuando la automática no es la correcta
 - [ ] Cola "Reproducir a continuación" desde el ⋮ de cada canción
 - [ ] Entrar en el inicio de un compás/frase (no solo en un golpe)
 - [ ] Mezclar también canciones de velocidades muy distintas con un efecto de transición (eco/filtro)

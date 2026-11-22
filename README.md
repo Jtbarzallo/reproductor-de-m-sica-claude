@@ -6,6 +6,7 @@ Reproductor de música sencillo en una sola página HTML.
 
 - Pantalla estilo app de música: menú de abajo (Inicio, Explorar, Favoritos, Búsqueda), lista con portadas, mini reproductor oscuro abajo y reproductor a pantalla completa
 - Favoritas con ❤ y búsqueda por título, artista, álbum o género
+- Carátulas automáticas: las canciones sin portada la buscan solas en internet (iTunes, Deezer, MusicBrainz); también salen en Android Auto
 
 - Reproducir/pausar, anterior/siguiente, barra de tiempo y volumen
 - Modos aleatorio y repetir
