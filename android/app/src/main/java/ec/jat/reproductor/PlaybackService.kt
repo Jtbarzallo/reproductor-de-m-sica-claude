@@ -7,6 +7,7 @@ import android.database.ContentObserver
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.MediaStore
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -268,6 +269,9 @@ class PlaybackService : MediaLibraryService() {
     private inner class Callback : MediaLibrarySession.Callback {
 
         override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
+            // Al conectar el carro: si la música está sonando en el celular, sigue en Android Auto
+            // con la misma canción y en el mismo punto.
+            if (controller.packageName.contains("gearhead") && WebService.estaSonando()) main.post { pasarAlCarro() }
             val comandos = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
                 .add(CMD_ALEATORIO).add(CMD_REPETIR).build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
@@ -384,6 +388,19 @@ class PlaybackService : MediaLibraryService() {
                 MediaSession.MediaItemsWithStartPosition(r.first, r.second, if (id != null) Respaldo.ultimaPos(ctx) else 0L)
             )
         }
+    }
+
+    private var ultimoPase = 0L
+    private fun pasarAlCarro() {
+        val ahora = SystemClock.elapsedRealtime()
+        if (ahora - ultimoPase < 5000 || player.isPlaying) return
+        ultimoPase = ahora
+        val id = Respaldo.ultimaId(this) ?: return
+        val r = try { Biblioteca.resolver(this, id) } catch (e: Exception) { null } ?: return
+        MainActivity.orden("pausa")
+        player.setMediaItems(r.first, r.second, Respaldo.ultimaPos(this))
+        player.prepare()
+        player.play()
     }
 
     private fun pagina(todos: List<MediaItem>, page: Int, pageSize: Int): ImmutableList<MediaItem> {

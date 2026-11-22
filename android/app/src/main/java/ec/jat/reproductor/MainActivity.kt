@@ -285,6 +285,22 @@ class MainActivity : Activity() {
             }
         }
 
+        /** Estado completo de lo que suena (para el centro de control, la pantalla bloqueada y Android Auto). */
+        @JavascriptInterface
+        fun estadoJSON(j: String) {
+            main.post {
+                try {
+                    val o = JSONObject(j)
+                    if (o.optBoolean("s")) PlaybackService.pausarSiSuena()
+                    WebService.actualizarDatos(this@MainActivity, o)
+                } catch (e: Exception) {}
+            }
+        }
+
+        /** Carátula de la canción que suena (data:… o https://…). */
+        @JavascriptInterface
+        fun portada(s: String) { main.post { WebService.ponerPortada(this@MainActivity, s) } }
+
         /** Color de la app elegido (azul marino o rojo): lo usa también la pantalla de Ajustes de Android Auto. */
         @JavascriptInterface
         fun ponerTema(color: String) {

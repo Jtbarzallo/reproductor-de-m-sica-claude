@@ -5,6 +5,25 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 22 nov 2026 — Reproductor principal: centro de control, pantalla bloqueada y Android Auto
+**Pedido por Jorge:** que sea su reproductor principal; no aparecía en el centro de control del celular, y debe aparecer también en Android Auto.
+
+**Causa:** la música de la pantalla principal suena dentro de la app, y Android no se enteraba de qué sonaba (no había "sesión multimedia" del sistema).
+
+**Novedades**
+- La app ahora publica una **sesión multimedia** del sistema. Por eso la canción aparece con **carátula, título y artista** en:
+  - el **centro de control** (como en la captura de Jorge),
+  - la **pantalla bloqueada** y la notificación,
+  - el **radio del carro por Bluetooth** (título y artista).
+- Desde ahí funcionan **⏯ ⏮ ⏭** y **mover la barra de tiempo**. También responden los **botones de los audífonos** (Bluetooth o con cable).
+- **Android Auto:** al conectar el carro mientras suena música en el celular, **sigue en Android Auto con la misma canción y en el mismo punto**. Si le das ▶ en el carro, también continúa donde ibas.
+
+**Para que la app aparezca en Android Auto** (si no está en la lista del carro): Android Auto la esconde porque no viene de la Play Store. Pasos en **⋮ → Ajustes → "Activar en Android Auto"** (modo desarrollador de Android Auto → "Fuentes desconocidas").
+
+**Respaldo:** la última canción y el punto donde ibas ya se guardaban para Android Auto. No hay datos nuevos.
+
+---
+
 ## 22 nov 2026 — Igualar tiempos y ver la velocidad (opciones A, B, C, D y E)
 **Pedido por Jorge:** igualar los tiempos de las canciones y mostrar la velocidad para elegir canciones de tiempo parecido. Eligió hacer todas las opciones.
 

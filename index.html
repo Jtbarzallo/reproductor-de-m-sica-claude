@@ -1600,7 +1600,7 @@ function mostrarActual(){
   const v = visibles(), pv = v.indexOf(actual);
   $('sub').textContent = (detalle(c) ? detalle(c) + ' — ' : '') + (pv >= 0 ? `Canción ${pv+1} de ${v.length}` : `Canción ${actual+1} de ${lista.length}`);
   if(urlPortada){ URL.revokeObjectURL(urlPortada); urlPortada = null; }
-  pintarMini();
+  pintarMini(); avisarApp();
   const d = $('disco');
   if(c.portada && c.caratula !== 'ninguna') urlPortada = URL.createObjectURL(c.portada);
   const img = c.caratula === 'ninguna' ? '' : (urlPortada || c.caratula || '');
@@ -1682,11 +1682,33 @@ function anterior(){
 
 enAudios('play', () => { pintarPlay(true); avisarApp(); });
 enAudios('pause', () => { pintarPlay(false); guardarEstado(); avisarApp(); });
+// Le cuenta al celular qué suena (centro de control, pantalla bloqueada, audífonos, radio del carro y Android Auto)
+let claveArte = '';
 function avisarApp(){
   if(!APP) return;
   const c = lista[actual];
-  try{ AndroidJAT.estado(c ? titulo(c) : '', c ? (c.artista || '') : '', !audio.paused); }catch(e){}
+  const datos = {t: c ? titulo(c) : '', a: c ? (c.artista || '') : '', al: c ? (c.album || '') : '', s: !audio.paused,
+    pos: audio.currentTime || 0, dur: audio.duration || 0, rate: audio.playbackRate || 1, mid: c && c.mid ? +c.mid : 0};
+  try{ AndroidJAT.estadoJSON(JSON.stringify(datos)); }
+  catch(e){ try{ AndroidJAT.estado(datos.t, datos.a, datos.s); }catch(_){} }
+  const clave = c ? c.id + '|' + (c.caratula || '') + '|' + (c.portada ? c.portada.size : 0) : '';
+  if(clave !== claveArte){ claveArte = clave; enviarArte(c, clave); }
 }
+async function enviarArte(c, clave){
+  let s = '';
+  try{
+    if(!c || c.caratula === 'ninguna') s = '';
+    else if(c.portada){
+      const bm = await createImageBitmap(c.portada), L = 400, k = Math.min(1, L / Math.max(bm.width, bm.height));
+      const cv = document.createElement('canvas'); cv.width = Math.round(bm.width * k); cv.height = Math.round(bm.height * k);
+      cv.getContext('2d').drawImage(bm, 0, 0, cv.width, cv.height); s = cv.toDataURL('image/jpeg', 0.85);
+    } else if(c.caratula) s = c.caratula;
+  }catch(e){ s = c && c.caratula && c.caratula !== 'ninguna' ? c.caratula : ''; }
+  if(clave === claveArte) try{ AndroidJAT.portada(s); }catch(e){}
+}
+enAudios('seeked', avisarApp);
+enAudios('ratechange', avisarApp);
+enAudios('loadedmetadata', avisarApp);
 enAudios('ended', finCancion);
 enAudios('loadedmetadata', () => { $('barra').max = audio.duration || 0; $('tTot').textContent = fmt(audio.duration); });
 let ultimoGuardado = 0;
@@ -1694,7 +1716,7 @@ enAudios('timeupdate', () => {
   if(!arrastrando) $('barra').value = audio.currentTime;
   $('tAct').textContent = fmt(audio.currentTime);
   $('miniProg').style.width = (audio.duration ? 100 * audio.currentTime / audio.duration : 0) + '%';
-  if(Date.now() - ultimoGuardado > 5000){ ultimoGuardado = Date.now(); guardarEstado(); }
+  if(Date.now() - ultimoGuardado > 5000){ ultimoGuardado = Date.now(); guardarEstado(); avisarApp(); }
 });
 let arrastrando = false;
 $('barra').addEventListener('input', () => { arrastrando = true; $('tAct').textContent = fmt($('barra').value); });
@@ -2511,7 +2533,11 @@ function iniciarApp(){
   // botones de la notificación del celular
   window.revisarPendiente = revisarPendiente;
   revisarPendiente();
-  window.appOrden = o => { if(o === 'play') play(); else if(o === 'sig') siguiente(false); else if(o === 'ant') anterior(); else if(o === 'pausa') audio.pause(); };
+  window.appOrden = o => {
+    if(o === 'play') play(); else if(o === 'reanudar'){ if(audio.paused) play(); }
+    else if(o === 'sig') siguiente(false); else if(o === 'ant') anterior(); else if(o === 'pausa') audio.pause();
+    else if(o.startsWith('seek:')){ const t = +o.slice(5); if(isFinite(t)) audio.currentTime = t; }
+  };
 }
 
 /* ---------- Carátulas desde internet (iTunes y Deezer) para las canciones que no traen portada ---------- */

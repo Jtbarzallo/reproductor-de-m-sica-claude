@@ -30,6 +30,7 @@
 - [x] Mixer DJ de dos platos (22 nov): suenan a la vez, SYNC de velocidad y golpes con corrección automática, crossfader, Vol y Bajos por plato, carga sola la siguiente
 - [x] Mixer: mover las pistas a mano (22 nov): arrastrar la onda, ±1 golpe, ⏪/⏩ mantenidos, barra de velocidad ±10 %
 - [x] Igualar tiempos (22 nov): bpm y tono en todas las filas, medición automática en segundo plano, grupo "Por velocidad", 🎯 solo tiempo parecido con % de ajuste, "Igualar solo" al cargar en el mixer; en el respaldo
+- [x] Sesión multimedia del sistema (22 nov): aparece en centro de control, pantalla bloqueada y radio Bluetooth con carátula; botones de audífonos; al conectar Android Auto sigue la misma canción en el mismo punto
 
 ## Pendientes / ideas
 - [ ] Favoritas también en Android Auto (una pestaña "Favoritas" en el carro)
