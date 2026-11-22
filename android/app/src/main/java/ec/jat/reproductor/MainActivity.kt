@@ -13,6 +13,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -52,8 +53,10 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         actual = WeakReference(this)
-        window.statusBarColor = Color.parseColor("#0F1220")
-        window.navigationBarColor = Color.parseColor("#0F1220")
+        window.statusBarColor = Color.parseColor("#FDFBFF")
+        window.navigationBarColor = Color.parseColor("#F3F1F6")
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         WebService.crearCanal(this)
 
         val cargador = WebViewAssetLoader.Builder()
@@ -62,7 +65,7 @@ class MainActivity : Activity() {
             .build()
 
         web = WebView(this)
-        web.setBackgroundColor(Color.parseColor("#0F1220"))
+        web.setBackgroundColor(Color.parseColor("#FDFBFF"))
         web.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -107,9 +110,12 @@ class MainActivity : Activity() {
         pedirPermisos()
     }
 
-    // No se pausa el WebView al salir de la app: la música sigue sonando.
+    // Atrás: primero cierra lo que esté abierto en la pantalla (reproductor, menú, ajustes).
+    // Si no hay nada abierto, la app se va al fondo sin pausar: la música sigue sonando.
     @Deprecated("Deprecated in Java")
-    override fun onBackPressed() { moveTaskToBack(true) }
+    override fun onBackPressed() {
+        web.evaluateJavascript("window.atras ? atras() : false") { r -> if (r != "true") moveTaskToBack(true) }
+    }
 
     override fun onDestroy() {
         if (actual?.get() === this) actual = null

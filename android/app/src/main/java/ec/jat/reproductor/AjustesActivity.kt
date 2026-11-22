@@ -32,11 +32,11 @@ import java.util.concurrent.Executors
 
 class AjustesActivity : Activity() {
 
-    private val FONDO = Color.parseColor("#0F1220")
-    private val TARJETA = Color.parseColor("#1A1F35")
-    private val ACENTO = Color.parseColor("#4FD1C5")
-    private val TEXTO = Color.parseColor("#EEF1FF")
-    private val GRIS = Color.parseColor("#9AA3C7")
+    private val FONDO = Color.parseColor("#FDFBFF")
+    private val TARJETA = Color.parseColor("#F1ECF6")
+    private val ACENTO = Color.parseColor("#9B3DF4")
+    private val TEXTO = Color.parseColor("#1D1B20")
+    private val GRIS = Color.parseColor("#6E6A75")
 
     private val main = Handler(Looper.getMainLooper())
     private val trabajo = Executors.newSingleThreadExecutor()
@@ -54,6 +54,9 @@ class AjustesActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = FONDO
+        window.navigationBarColor = FONDO
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         val scroll = ScrollView(this)
         scroll.setBackgroundColor(FONDO)
         scroll.fitsSystemWindows = true
@@ -294,16 +297,16 @@ class AjustesActivity : Activity() {
 
     private fun boton(t: String, secundario: Boolean = false, accion: () -> Unit) = Button(this).apply {
         text = t; isAllCaps = false; textSize = 15f
-        setTextColor(if (secundario) TEXTO else FONDO)
+        setTextColor(if (secundario) TEXTO else Color.WHITE)
         background = GradientDrawable().apply {
-            setColor(if (secundario) Color.parseColor("#263055") else ACENTO); cornerRadius = dp(12).toFloat()
+            setColor(if (secundario) Color.parseColor("#E6DFEE") else ACENTO); cornerRadius = dp(12).toFloat()
         }
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(52)).apply { topMargin = dp(10) }
         setOnClickListener { accion() }
     }
 
     private fun botonChico(t: String, accion: () -> Unit) = Button(this).apply {
-        text = t; textSize = 22f; setTextColor(FONDO)
+        text = t; textSize = 22f; setTextColor(Color.WHITE)
         background = GradientDrawable().apply { setColor(ACENTO); cornerRadius = dp(30).toFloat() }
         layoutParams = LinearLayout.LayoutParams(dp(64), dp(60)).apply { setMargins(dp(8), dp(10), dp(8), 0) }
         setOnClickListener { accion() }

@@ -2,6 +2,11 @@
 
 Reproductor de música sencillo en una sola página HTML.
 
+📒 Cambios y novedades: [BITACORA.md](BITACORA.md) · Lista de mejoras: [MEJORAS.md](MEJORAS.md)
+
+- Pantalla estilo app de música: menú de abajo (Inicio, Explorar, Favoritos, Búsqueda), lista con portadas, mini reproductor oscuro abajo y reproductor a pantalla completa
+- Favoritas con ❤ y búsqueda por título, artista, álbum o género
+
 - Reproducir/pausar, anterior/siguiente, barra de tiempo y volumen
 - Modos aleatorio y repetir
 - Audio 8D: el sonido gira alrededor de la cabeza (Lento / Normal / Rápido), para audífonos: retraso entre oídos, sombra de la cabeza en los agudos, detrás más opaco y con eco de sala; los graves quedan al centro y el volumen no sube y baja
