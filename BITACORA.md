@@ -5,6 +5,24 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 21 nov 2026 (noche) — Editar datos (TAG) y mejores carátulas
+**Pedido por Jorge:** mejorar las carátulas y poder cambiar el TAG (título, artista…) para encontrar la carátula verdadera. Ejemplo: "Track 04" de Enanitos Verdes, álbum "Enanitos Verdes (Variadas)", salía sin carátula.
+
+**Novedades**
+- **✏️ Editar datos:** ⋮ de la canción → "Editar datos", o **tocar el título** en "Reproduciendo". Se puede cambiar título, artista, álbum, año y género. Al guardar:
+  - busca la carátula con los datos nuevos; si no la encuentra sola, abre "Cambiar carátula" para elegirla;
+  - vuelve a buscar la letra si cambió el título o el artista;
+  - los datos nuevos salen también en Android Auto.
+- **🔍 Reconocer por el sonido** una sola canción (⋮ de la canción, o dentro de "Editar datos"): escucha la canción y llena título, artista y álbum solos (necesita la clave AcoustID de Ajustes). El botón "Reconocer sin etiqueta" ahora también reconoce las que se llaman "Track 04", "Pista 4", "04", "Unknown"…
+- **Carátulas mejores:**
+  - si no encuentra la canción (por ejemplo "Track 04"), busca la carátula del **álbum** por artista + nombre del álbum;
+  - no se deja engañar por álbumes genéricos como "(Variadas)", "Éxitos" o "Vol. 2": en esos casos no pone una al azar;
+  - en "Cambiar carátula" ahora salen también **los álbumes del artista** (marcados con 💿) para elegir el correcto.
+
+**Respaldo (regla fija):** los datos editados a mano van en el respaldo (💾) marcados como "a mano": al cargar el respaldo en una instalación nueva **mandan sobre lo que dice el archivo**. Lo mismo la carátula elegida a mano. Los datos se guardan en la app y en el respaldo; **el archivo de música no se modifica**.
+
+---
+
 ## 21 nov 2026 (noche) — Carátulas: arreglo y cambiar a mano
 **Problema que vio Jorge:** canciones de Tamara ("Canta Roberto Carlos") salían con la carátula de Roberto Carlos, y no había forma de cambiarla.
 

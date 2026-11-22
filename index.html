@@ -107,7 +107,7 @@
   .disco svg.i{width:38%;height:38%}
   .disco.portada{background-size:cover;background-position:center}
   .disco.portada svg{display:none}
-  #titulo{font-size:24px;font-weight:700;text-align:center;word-break:break-word;min-height:28px}
+  #titulo{cursor:pointer;font-size:24px;font-weight:700;text-align:center;word-break:break-word;min-height:28px}
   #sub{font-size:16px;color:var(--mut);text-align:center;margin-top:4px}
   .tiempos{display:flex;justify-content:space-between;font-size:14px;color:var(--mut)}
   .ctrl{display:flex;justify-content:center;align-items:center;gap:14px;margin:10px 0}
@@ -484,7 +484,7 @@ function leerTodas(){
 function estado(){
   return { app:'Reproductor de Música JAT', version:1, fecha:new Date().toISOString(),
     orden: lista.map(c => c.nombre),
-    etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm || c.caratula).map(c => [c.nombre, {titulo:c.titulo||'', caratula:c.caratula||'', artista:c.artista||'', album:c.album||'', anio:c.anio||'', genero:c.genero||'', bpm:c.bpm||0, pulso:c.pulso||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
+    etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm || c.caratula || c.tagManual).map(c => [c.nombre, {titulo:c.titulo||'', caratula:c.caratula||'', manual:c.tagManual?1:0, carM:c.carManual?1:0, artista:c.artista||'', album:c.album||'', anio:c.anio||'', genero:c.genero||'', bpm:c.bpm||0, pulso:c.pulso||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
     vista, favoritas: lista.filter(c => c.fav).map(c => c.nombre),
     clave: claveGuardada(), actual: lista[actual]?.nombre || null,
     posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg, eq: eqVals, ocho: ochoSeg };
@@ -517,7 +517,10 @@ function aplicarEstado(e, conPos, soloLista = false){
   if(e.etiquetas) lista.forEach(c => {
     const t = e.etiquetas[c.nombre]; if(!t) return;
     let cambio = false;
-    for(const k of ['titulo','artista','album','anio','genero','bpm','pulso','letra','letraSync','caratula']) if(t[k] && !c[k] && !(k === 'caratula' && c.carV >= 2)){ c[k] = t[k]; cambio = true; if(k === 'caratula'){ c.carV = 2; c.carManual = true; } }
+    // lo que Jorge corrigió a mano (datos o carátula) manda sobre lo que trae el archivo
+    if(t.manual && !c.tagManual){ ['titulo','artista','album','anio','genero'].forEach(k => { c[k] = t[k] || ''; }); c.tagManual = true; cambio = true; }
+    if(t.carM && !c.carManual && t.caratula){ c.caratula = t.caratula; delete c.portada; c.carManual = true; c.carV = 2; cambio = true; }
+    for(const k of ['titulo','artista','album','anio','genero','bpm','pulso','letra','letraSync','caratula']) if(t[k] && !c[k] && !(k === 'caratula' && c.carV >= 2) && !c.tagManual){ c[k] = t[k]; cambio = true; if(k === 'caratula'){ c.carV = 2; c.carManual = true; } }
     if(cambio) guardarCancion(c);
   });
   if(Array.isArray(e.favoritas)){        // favoritas: solo se marcan las que nunca se tocaron en este equipo
@@ -1414,13 +1417,14 @@ function leerEtiquetas(c){
       jsmediatags.read(b, {
         onSuccess: t => {
           const g = t.tags || {};
-          if(g.title) c.titulo = String(g.title).trim();
-          if(g.artist) c.artista = String(g.artist).trim();
-          if(g.album) c.album = String(g.album).trim();
+          const mano = c.tagManual;   // datos corregidos a mano: no se pisan con los del archivo
+          if(g.title && !mano) c.titulo = String(g.title).trim();
+          if(g.artist && !mano) c.artista = String(g.artist).trim();
+          if(g.album && !mano) c.album = String(g.album).trim();
           const fecha = g.year || (g.TDRC && g.TDRC.data) || (g.TDOR && g.TDOR.data) || (g.TORY && g.TORY.data) || (g['©day'] && g['©day'].data) || '';
-          const m4 = String(fecha).match(/\d{4}/); if(m4) c.anio = m4[0];
+          const m4 = String(fecha).match(/\d{4}/); if(m4 && !mano) c.anio = m4[0];
           if(g.genre && !c.genero) c.genero = limpiarGenero(g.genre);
-          if(g.picture && g.picture.data){
+          if(g.picture && g.picture.data && !c.carManual){
             try{ c.portada = new Blob([new Uint8Array(g.picture.data)], {type: g.picture.format || 'image/jpeg'}); }catch(e){}
           }
           c.leido = true; ok();
@@ -2050,12 +2054,14 @@ async function bajarPortada(rgid){
   }catch(e){ return null; }
 }
 let reconociendo = false;
-async function reconocerTodas(){
-  if(reconociendo) return;
+async function reconocerTodas(sola = null){
+  if(reconociendo){ if(sola) toast('🔍 Ya estoy reconociendo canciones…'); return; }
   const clave = claveGuardada();
-  if(!clave){ $('estadoRec').textContent = '⚠ Primero pega tu clave de AcoustID en ⋮ → Ajustes.'; cerrarPantalla(); irVista('ajustes'); $('clave').focus(); return; }
-  const pend = lista.filter(c => !c.titulo);
+  if(!clave){ if(sola) toast('⚠ Para reconocer por el sonido, primero pega tu clave AcoustID en ⋮ → Ajustes', 5000);
+    $('estadoRec').textContent = '⚠ Primero pega tu clave de AcoustID en ⋮ → Ajustes.'; cerrarPantalla(); irVista('ajustes'); $('clave').focus(); return; }
+  const pend = sola ? [sola] : lista.filter(c => tituloGenerico(c.titulo));   // sin título o con "Track 04" y parecidos
   if(!pend.length){ $('estadoRec').textContent = '✔ Todas las canciones ya tienen título.'; return; }
+  if(sola) toast('🔍 Escuchando la canción para reconocerla…', 30000);
   reconociendo = true; $('bRec').disabled = true;
   let ok = 0, no = 0;
   for(let i = 0; i < pend.length; i++){
@@ -2074,7 +2080,11 @@ async function reconocerTodas(){
       const m = mejorResultado(d);
       if(m){
         c.titulo = m.titulo; c.artista = m.artista; c.album = m.album; c.genero = '';
-        if(!c.portada){ const p = await bajarPortada(m.rgid); if(p) c.portada = p; }
+        if(!c.carManual){
+          const p = await bajarPortada(m.rgid);
+          if(p) ponerCaratula(c, 'https://coverartarchive.org/release-group/' + m.rgid + '/front-500', p, false);
+          else if(c.carV && !c.caratula) delete c.carV;        // se vuelve a buscar la carátula con los datos nuevos
+        }
         c.letra = ''; c.letraSync = ''; c.letraNo = false;
         guardarCancion(c); ok++;
         pintarLista(); if(lista[actual] === c){ mostrarActual(); if(flotAbierto()) cargarLetra(); }
@@ -2085,8 +2095,10 @@ async function reconocerTodas(){
   guardarEstado();
   if(!/⚠/.test($('estadoRec').textContent)) $('estadoRec').textContent = `✔ Reconocidas: ${ok}. No encontradas: ${no}.`;
   reconociendo = false; $('bRec').disabled = false;
+  if(sola) toast(/⚠/.test($('estadoRec').textContent) ? $('estadoRec').textContent : ok ? '✔ Canción reconocida: ' + titulo(sola) : 'No pude reconocerla. Puedes escribir los datos con ⋮ → Editar datos.', 5000);
+  if(ok) buscarCaratulas();
 }
-$('bRec').onclick = reconocerTodas;
+$('bRec').onclick = () => reconocerTodas();
 
 /* ---------- Letra flotante ---------- */
 let lineas = [], lineaAct = -1, tamLetra = 20;
@@ -2322,6 +2334,45 @@ async function musicbrainz(term){   // tercera opción: MusicBrainz + Cover Art 
       img: 'https://coverartarchive.org/release-group/' + rg.id + '/front-500'} : null;
   }).filter(Boolean);
 }
+// "Track 04", "Pista 4", "04", "Unknown"… no sirven para buscar
+function tituloGenerico(t){
+  t = String(t || '').trim();
+  return !t || /^(track|pista|tema|audio|canci[oó]n|song|titulo|t[ií]tulo|untitled|sin t[ií]tulo|desconocid[oa]|unknown)?[\s\-_#.]*\d{0,3}$/i.test(t);
+}
+// Lo que de verdad dice el nombre del álbum (sin "(Variadas)", sin el nombre del artista, sin "Éxitos", "Vol. 2"…)
+const PAL_ALBUM_VACIAS = new Set('variadas variado variados exitos exito grandes lo mejor mejores coleccion recopilacion mix mixes hits greatest best of the de del la las los el y vol volumen cd disco album music musica parte original'.split(' '));
+function albumNucleo(c){
+  const art = new Set(normal(c.artista).split(' '));
+  return normal(String(c.album || '').replace(/[\(\[].*?[\)\]]/g, ' ')).split(' ')
+    .filter(w => w && !art.has(w) && !PAL_ALBUM_VACIAS.has(w) && !/^\d+$/.test(w)).join(' ');
+}
+async function itunesAlbum(term){
+  const url = 'https://itunes.apple.com/search?media=music&entity=album&limit=25&term=' + encodeURIComponent(term);
+  let d;
+  try{ const r = await fetch(url); if(!r.ok) throw 0; d = await r.json(); }
+  catch(e){ d = await jsonp(url); }
+  return (d.results || []).filter(x => x.artworkUrl100).map(x => ({titulo: x.collectionName, artista: x.artistName, album: x.collectionName,
+    img: x.artworkUrl100.replace(/\/\d+x\d+bb\./, '/600x600bb.'), esAlbum: true}));
+}
+async function deezerAlbum(term){
+  const d = await jsonp('https://api.deezer.com/search/album?output=jsonp&limit=25&q=' + encodeURIComponent(term));
+  return (d.data || []).filter(x => x.cover_xl || x.cover_big).map(x => ({titulo: x.title, artista: x.artist ? x.artist.name : '', album: x.title,
+    img: x.cover_xl || x.cover_big, esAlbum: true}));
+}
+// Álbum correcto: mismo artista y el nombre del álbum coincide
+function elegirAlbum(res, c, nuc){
+  const refA = ' ' + normal(c.artista) + ' ', pal = nuc.split(' ');
+  let mejor = null, mejorP = -1;
+  res.forEach(x => {
+    const ta = normal(x.artista).split(' ').filter(Boolean); if(!ta.length) return;
+    const cubreA = ta.filter(w => refA.includes(' ' + w + ' ')).length / ta.length;
+    const al = ' ' + normal(x.album) + ' ', cubreN = pal.filter(w => al.includes(' ' + w + ' ')).length / pal.length;
+    if(cubreA < 0.6 || cubreN < 0.75) return;
+    const p = cubreA * 3 + cubreN * 3 - normal(x.album).split(' ').length * 0.05;
+    if(p > mejorP){ mejorP = p; mejor = x; }
+  });
+  return mejor;
+}
 // Puntaje de un resultado: el título tiene que coincidir, y el ARTISTA con el artista de la canción
 // (no con el álbum: "Tamara · Canta Roberto Carlos" no debe aceptar carátulas de Roberto Carlos)
 function puntajeCaratula(x, c){
@@ -2361,6 +2412,14 @@ async function caratulaDe(c){
       await espera(250);
     }
     if(x) break;
+  }
+  // si no se encontró la canción (por ejemplo título "Track 04"), se busca el ÁLBUM por artista + nombre del álbum
+  const nuc = c.artista ? albumNucleo(c) : '';
+  if(!x && nuc){
+    for(const fuente of [itunesAlbum, deezerAlbum]){
+      try{ x = elegirAlbum(await fuente(c.artista + ' ' + nuc), c, nuc); huboRed = true; }catch(e){ x = null; }
+      if(x) break;
+    }
   }
   if(!x) return huboRed ? null : {error: true};
   if(/coverartarchive/.test(x.img)){   // MusicBrainz: hay que confirmar que la carátula existe
@@ -2406,20 +2465,34 @@ async function buscarCaratulas(todas = false){
 async function opcionesCaratula(c){
   const {pares, libres} = combinacionesLetra(c);
   const terminos = [...pares.map(p => p.artista + ' ' + p.cancion), ...libres];
-  if(c.titulo) terminos.push(limpiarTexto(c.titulo));
-  if(c.artista && c.album) terminos.push(c.artista + ' ' + c.album);
+  if(c.titulo && !tituloGenerico(c.titulo)) terminos.push(limpiarTexto(c.titulo));
+  const generico = tituloGenerico(c.titulo);
+  const busq = [...new Set(terminos)].filter(t => !generico || !tituloGenerico(t.replace(c.artista || '', ''))).slice(0, 4).map(t => [t, itunes, deezer]);
+  // también los álbumes del artista (sirve cuando el título no dice nada, como "Track 04")
+  if(c.artista){
+    const nuc = albumNucleo(c);
+    if(nuc) busq.push([c.artista + ' ' + nuc, itunesAlbum, deezerAlbum]);
+    busq.push([c.artista, itunesAlbum, deezerAlbum]);
+  }
   const vistos = new Set(), out = [];
   let huboRed = false;
-  for(const t of [...new Set(terminos)].slice(0, 4)){
-    const res = await Promise.all([itunes(t).catch(() => null), deezer(t).catch(() => null)]);
+  for(const [t, f1, f2] of busq){
+    const res = await Promise.all([f1(t).catch(() => null), f2(t).catch(() => null)]);
     res.forEach(r => { if(!r) return; huboRed = true; r.forEach(x => {
       const k = normal(x.artista + ' ' + x.album); if(vistos.has(k) || vistos.has(x.img)) return;
       vistos.add(k); vistos.add(x.img);
-      const pt = puntajeCaratula(x, c); out.push(Object.assign({p: pt ? pt.p : 0}, x));
+      let p;
+      if(x.esAlbum){   // álbum: vale si es del mismo artista; más si el nombre del álbum coincide
+        const ta = normal(x.artista).split(' ').filter(Boolean), refA = ' ' + normal(c.artista) + ' ';
+        const cubreA = ta.length ? ta.filter(w => refA.includes(' ' + w + ' ')).length / ta.length : 0;
+        const nuc = albumNucleo(c).split(' ').filter(Boolean), al = ' ' + normal(x.album) + ' ';
+        p = cubreA * 4 + (nuc.length ? nuc.filter(w => al.includes(' ' + w + ' ')).length / nuc.length * 3 : 0) - (cubreA < 0.6 ? 5 : 0);
+      } else { const pt = puntajeCaratula(x, c); p = pt ? pt.p : 0; }
+      out.push(Object.assign({p}, x));
     }); });
   }
   if(!huboRed) return null;
-  return out.sort((a, b) => b.p - a.p).slice(0, 18);
+  return out.sort((a, b) => b.p - a.p).slice(0, 24);
 }
 function imagenAchicada(file, lado = 500){
   return new Promise(ok => {
@@ -2461,7 +2534,7 @@ async function cambiarCaratula(i){
     const b = document.createElement('button');
     const im = document.createElement('img'); im.src = x.img.replace('/600x600bb.', '/200x200bb.'); im.loading = 'lazy'; im.alt = '';
     if(x.img === c.caratula) b.classList.add('elegida');
-    const t = document.createElement('span'); t.textContent = x.artista + ' · ' + x.album;
+    const t = document.createElement('span'); t.textContent = x.esAlbum ? x.artista + ' · 💿 ' + x.album : x.artista + ' · ' + x.album;
     b.append(im, t);
     b.onclick = async () => {
       cerrarHoja(); toast('🖼 Poniendo carátula…', 8000);
@@ -2660,6 +2733,8 @@ function menuCancion(i){
     }},
   ];
   ops.push({t: '🖼  Cambiar carátula', f: () => cambiarCaratula(i)});
+  ops.push({t: '✏️  Editar datos (título, artista, álbum…)', f: () => editarDatos(i)});
+  ops.push({t: '🔍  Reconocer por el sonido', f: () => reconocerTodas(c)});
   if(vistaAct === 'inicio' && vista.por === 'todas' && i > 0) ops.push({t: '⬆  Subir en la lista', f: () => mover(i, -1)});
   ops.push({t: '🗑  Quitar de la lista', f: () => quitar(i)});
   abrirHoja(titulo(c), [c.artista, c.album].filter(Boolean).join(' · '), ops);
@@ -2709,6 +2784,49 @@ $('filaAgregarFav').onclick = () => {
   pintar();
   abrirHoja('Agregar a favoritas', 'Toca las canciones que quieras (♡ → ❤)', [caja, cont]);
 };
+
+// Editar los datos (etiqueta) de una canción: título, artista, álbum, año y género
+function editarDatos(i){
+  const c = lista[i]; if(!c) return;
+  const f = document.createElement('div'); f.style.padding = '4px 22px 10px';
+  const campos = [['titulo', 'Título', titulo(c)], ['artista', 'Artista', c.artista], ['album', 'Álbum', c.album], ['anio', 'Año', c.anio], ['genero', 'Género', c.genero]];
+  const inp = {};
+  campos.forEach(([k, et, v]) => {
+    const l = document.createElement('label'); l.textContent = et; l.style.cssText = 'display:block;font-size:14px;color:var(--mut);margin-top:10px';
+    const x = document.createElement('input'); x.type = 'text'; x.value = v || ''; x.style.marginTop = '4px';
+    if(k === 'anio') x.inputMode = 'numeric';
+    inp[k] = x; f.append(l, x);
+  });
+  const arch = document.createElement('div'); arch.className = 'nota'; arch.textContent = 'Archivo: ' + (c.ruta || c.nombre);
+  const g = document.createElement('button'); g.textContent = '💾 Guardar y buscar la carátula';
+  g.style.cssText = 'width:100%;margin-top:16px;background:var(--acc);color:#fff;font-weight:700';
+  const rec = document.createElement('button'); rec.textContent = '🔍 Reconocer por el sonido (llena los datos solo)';
+  rec.style.cssText = 'width:100%;margin-top:10px;font-size:16px';
+  rec.onclick = () => { cerrarHoja(); reconocerTodas(c); };
+  f.append(arch, g, rec);
+  g.onclick = async () => {
+    const nuevo = {}; let cambioTA = false, cambio = false;
+    campos.forEach(([k]) => { nuevo[k] = inp[k].value.trim(); });
+    if(!nuevo.titulo) return toast('Escribe el título');
+    if(nuevo.titulo !== titulo(c) || nuevo.artista !== (c.artista || '')) cambioTA = true;
+    campos.forEach(([k]) => { if(nuevo[k] !== (k === 'titulo' ? titulo(c) : (c[k] || ''))) cambio = true; });
+    cerrarHoja();
+    if(!cambio){ toast('Sin cambios'); return; }
+    campos.forEach(([k]) => { c[k] = nuevo[k]; });
+    c.tagManual = true;
+    if(cambioTA){ c.letra = ''; c.letraSync = ''; c.letraNo = false; }     // la letra se vuelve a buscar con los datos nuevos
+    guardarCancion(c); pintarLista(); if(lista[actual] === c){ mostrarActual(); if(cambioTA && flotAbierto()) cargarLetra(); } guardarEstado();
+    // carátula con los datos nuevos (si no la elegiste tú a mano)
+    if(c.carManual){ toast('✔ Datos guardados'); return; }
+    toast('✔ Datos guardados · 🖼 buscando la carátula…', 20000);
+    const r = await caratulaDe(c);
+    if(r && !r.error){ ponerCaratula(c, r.url, r.blob, false); toast('🖼 Carátula encontrada. Si no es la correcta: ⋮ → Cambiar carátula', 5000); }
+    else if(r && r.error) toast('⚠ Sin internet: la carátula se buscará después', 4000);
+    else { toast('No la encontré sola: elige la correcta', 3000); cambiarCaratula(i); }
+  };
+  abrirHoja('Editar datos de la canción', 'Se guardan en la app y en el respaldo', [f]);
+}
+$('titulo').onclick = () => { if(actual >= 0) editarDatos(actual); };
 
 // Botón morado: aleatorio
 $('bMezclar').onclick = () => {
