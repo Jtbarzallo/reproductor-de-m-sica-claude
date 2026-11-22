@@ -31,6 +31,7 @@
 - [x] Mixer: mover las pistas a mano (22 nov): arrastrar la onda, ±1 golpe, ⏪/⏩ mantenidos, barra de velocidad ±10 %
 - [x] Igualar tiempos (22 nov): bpm y tono en todas las filas, medición automática en segundo plano, grupo "Por velocidad", 🎯 solo tiempo parecido con % de ajuste, "Igualar solo" al cargar en el mixer; en el respaldo
 - [x] Sesión multimedia del sistema (22 nov): aparece en centro de control, pantalla bloqueada y radio Bluetooth con carátula; botones de audífonos; al conectar Android Auto sigue la misma canción en el mismo punto
+- [x] Páginas de artista y álbum estilo Deezer (22 nov): tarjetas con foto, imagen grande, título grande, "De ARTISTA", ▶ grande, lista numerada; foto del artista de internet (en el respaldo)
 
 ## Pendientes / ideas
 - [ ] Favoritas también en Android Auto (una pestaña "Favoritas" en el carro)
@@ -39,6 +40,7 @@
 - [ ] Guardar también los datos editados dentro del archivo de música (escribir el TAG en el MP3)
 - [ ] Letra: botón "Con traducción" (traducir la letra al español/inglés)
 - [ ] Mixer: marcar puntos (cue) y ecualizador por canción (graves/medios/agudos) mientras se mezcla
+- [ ] Compartir / descargar desde la página de álbum (como Deezer)
 - [ ] Cola "Reproducir a continuación" desde el ⋮ de cada canción
 - [ ] Entrar en el inicio de un compás/frase (no solo en un golpe)
 - [ ] Mezclar también canciones de velocidades muy distintas con un efecto de transición (eco/filtro)

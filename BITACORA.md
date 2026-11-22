@@ -5,6 +5,24 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 22 nov 2026 — Páginas de artista y álbum (estilo Deezer)
+**Pedido por Jorge:** que al ver por artista o por álbum aparezca como en Deezer (foto grande, título grande, lista numerada).
+
+**Novedades**
+- **Inicio → Artista / Álbum** ya no muestra botoncitos: muestra **tarjetas con foto** (artistas en círculo, álbumes en cuadrado) con el número de canciones.
+- Al tocar una tarjeta se abre su **página**:
+  - **imagen grande arriba** (la carátula del álbum o la **foto del artista**, que se busca sola en internet), con ← para volver y ⋮;
+  - **título grande en mayúsculas** y, en los álbumes, **"De ARTISTA"** con su fotito (al tocarlo, va a la página del artista); en los artistas, cuántas canciones y álbumes tiene;
+  - **❤** (todas a favoritas), **🔀** aleatorio y el **▶ grande** para reproducir todo;
+  - **lista numerada** ("1. Canción…") con carátula, bpm, ❤ y ⋮. Los álbumes salen en el orden de sus pistas.
+- En el **⋮ de cada canción**: "👤 Ver artista" y "💿 Ver álbum".
+- En el ⋮ de la página: ver el artista del álbum, mezclar en el **Mixer DJ** o ver en la lista de Inicio.
+- Al reproducir desde una página, siguiente/anterior se quedan en ese artista o álbum.
+
+**Respaldo (regla fija):** las fotos de los artistas encontradas van en el respaldo (💾).
+
+---
+
 ## 22 nov 2026 — Reproductor principal: centro de control, pantalla bloqueada y Android Auto
 **Pedido por Jorge:** que sea su reproductor principal; no aparecía en el centro de control del celular, y debe aparecer también en Android Auto.
 

@@ -64,6 +64,34 @@
   .agregar .por{background:#ebe8ef;color:#5f5b66}
   .agregar .t{font-weight:400}
 
+  /* ---- Artista / álbum ---- */
+  .grilla{display:grid;grid-template-columns:1fr 1fr;gap:16px 14px;padding:14px}
+  .grilla button{background:transparent;padding:0;text-align:left;display:flex;flex-direction:column;gap:4px;min-width:0;border-radius:0}
+  .grilla .gImg{width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--sel);color:var(--mut);display:flex;align-items:center;justify-content:center}
+  .grilla .gImg img{width:100%;height:100%;object-fit:cover}
+  .grilla .gImg svg.i{width:40%;height:40%}
+  .grilla.redonda .gImg{border-radius:50%}
+  .grilla.redonda button{text-align:center;align-items:center}
+  .grilla b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .grilla small{font-size:13px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  body.enDetalle .top{display:none}
+  #v-detalle{padding-bottom:190px}
+  .dImg{position:relative;width:100%;aspect-ratio:1;max-height:62vh;background-size:cover;background-position:center;background-color:var(--sel)}
+  .dImg.vacia{background-image:linear-gradient(135deg,var(--g1),var(--g2))!important}
+  .dImg::after{content:'';position:absolute;inset:0 0 auto 0;height:90px;background:linear-gradient(rgba(0,0,0,.45),transparent);pointer-events:none}
+  .dBtn{position:absolute;top:10px;left:8px;z-index:2;color:#fff!important}
+  .dBtn.dDer{left:auto;right:8px}
+  .dCab{padding:18px 18px 4px}
+  .dTit{margin:0;font-family:Impact,'sans-serif-condensed','Arial Narrow',sans-serif;font-weight:900;text-transform:uppercase;
+    font-size:clamp(32px,10.5vw,58px);line-height:.98;letter-spacing:-.5px;word-break:break-word}
+  .dDe{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:17px;color:var(--mut);font-weight:600}
+  .dAv{width:40px;height:40px;border-radius:50%;background-size:cover;background-position:center;background-color:var(--sel);flex:0 0 40px}
+  .dLink{cursor:pointer}
+  .dAcc{display:flex;align-items:center;gap:14px;margin:16px 0 6px}
+  .dAcc .ib svg.i{width:32px;height:32px}
+  .dFav.on2{color:var(--acc)!important}
+  .dPlayB{width:68px;height:68px}
+  .dPlayB svg.i{width:38px;height:38px}
   /* ---- Explorar ---- */
   .mosaico{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px 14px 0}
   .mosaico button{height:92px;border-radius:14px;text-align:left;font-size:18px;font-weight:700;color:#fff;padding:14px;display:flex;flex-direction:column;justify-content:space-between}
@@ -314,6 +342,20 @@
 </section>
 
 <!-- ===== Explorar ===== -->
+<!-- ===== Página de artista o álbum ===== -->
+<section class="vista" id="v-detalle">
+  <div class="dImg"><button class="ib dBtn" id="dAtras" title="Atrás"><svg class="i"><use href="#i-back"/></svg></button>
+    <button class="ib dBtn dDer" id="dMas" title="Más opciones"><svg class="i"><use href="#i-more"/></svg></button></div>
+  <div class="dCab">
+    <h2 class="dTit"></h2>
+    <div class="dDe"></div>
+    <div class="dAcc"><button class="ib dFav" id="dFavB" title="Todas a favoritas"></button>
+      <button class="ib" id="dMezclar" title="Aleatorio"><svg class="i"><use href="#i-shuffle"/></svg></button>
+      <span style="flex:1"></span><button class="fab dPlayB" id="dPlay" title="Reproducir"><svg class="i"><use href="#i-play"/></svg></button></div>
+  </div>
+  <div class="dLista"></div>
+</section>
+
 <section class="vista" id="v-explorar">
   <div class="mosaico" id="mosaico">
     <button data-p="genero" style="background:#14224a">Géneros<small>Salsa, pop, rock…</small></button>
@@ -631,7 +673,7 @@ function estado(){
     etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm || c.caratula || c.tagManual || c.tono).map(c => [c.nombre, {titulo:c.titulo||'', caratula:c.caratula||'', manual:c.tagManual?1:0, carM:c.carManual?1:0, tono:c.tono||'', tonoNom:c.tonoNom||'', artista:c.artista||'', album:c.album||'', anio:c.anio||'', genero:c.genero||'', bpm:c.bpm||0, pulso:c.pulso||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
     vista, favoritas: lista.filter(c => c.fav).map(c => c.nombre),
     clave: claveGuardada(), actual: lista[actual]?.nombre || null,
-    posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg, eq: eqVals, ocho: ochoSeg, letraModo, tema, mxAuto };
+    posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg, eq: eqVals, ocho: ochoSeg, letraModo, tema, mxAuto, fotosArtistas };
 }
 const APP = !!window.AndroidJAT;   // dentro de la app Android
 let syncTimer = null;
@@ -657,6 +699,7 @@ function aplicarEstado(e, conPos, soloLista = false){
     if(e.estereo && PRESETS[e.estereo]) ponerEstereo(e.estereo, false);
     if(Array.isArray(e.eq) && e.eq.length === 5) ponerEQ(e.eq, false);
     if(typeof e.ocho === 'number') poner8D(e.ocho, false);
+    if(e.fotosArtistas && typeof e.fotosArtistas === 'object'){ for(const [k, u] of Object.entries(e.fotosArtistas)) if(u && !fotosArtistas[k]) fotosArtistas[k] = u; guardarFotos(); }
     if(typeof e.mxAuto === 'boolean'){ mxAuto = e.mxAuto; try{ localStorage.setItem('reproductorJAT_mxAuto', mxAuto ? '1' : '0'); }catch(_){} }
     if(e.tema && TEMAS[e.tema]){ try{ localStorage.setItem('reproductorJAT_tema', e.tema); }catch(_){} ponerTema(e.tema, false); }
     if(e.letraModo && typeof e.letraModo === 'object'){ Object.assign(letraModo, e.letraModo); try{ localStorage.setItem('reproductorJAT_letraModo', JSON.stringify(letraModo)); }catch(_){} aplicarModoLetra(); }
@@ -1569,6 +1612,7 @@ function leerEtiquetas(c){
           if(g.title && !mano) c.titulo = String(g.title).trim();
           if(g.artist && !mano) c.artista = String(g.artist).trim();
           if(g.album && !mano) c.album = String(g.album).trim();
+          if(g.track){ const n = parseInt(String(g.track)); if(n > 0) c.pista = n; }   // número de pista (orden del álbum)
           const fecha = g.year || (g.TDRC && g.TDRC.data) || (g.TDOR && g.TDOR.data) || (g.TORY && g.TORY.data) || (g['©day'] && g['©day'].data) || '';
           const m4 = String(fecha).match(/\d{4}/); if(m4 && !mano) c.anio = m4[0];
           if(g.genre && !c.genero) c.genero = limpiarGenero(g.genre);
@@ -1787,7 +1831,7 @@ function filtradas(){
 function pintarChips(){
   document.querySelectorAll('#porChips button').forEach(b => b.classList.toggle('on', b.dataset.p === vista.por));
   const gc = $('grupoChips'); gc.innerHTML = '';
-  if(vista.por === 'todas'){ gc.style.display = 'none'; return; }
+  if(vista.por === 'todas' || vista.por === 'artista' || vista.por === 'album'){ gc.style.display = 'none'; return; }   // artista y álbum: tarjetas con foto
   gc.style.display = '';
   const cuenta = new Map();
   lista.forEach(c => { const g = grupoDe(c, vista.por); cuenta.set(g, (cuenta.get(g) || 0) + 1); });
@@ -1850,6 +1894,7 @@ function filaCancion(i, alTocar, conExtra = false){
 function pintarLista(){
   pintarChips();
   const ul = $('lista'); ul.innerHTML = '';
+  if(lista.length && (vista.por === 'artista' || vista.por === 'album') && vista.grupo === null){ pintarGrilla(ul); pintarFavs(); pintarBusqueda(); pintarTitulo(); if(vistaAct === 'detalle') pintarDetalle(); return; }
   if(!lista.length){ ul.innerHTML = '<div class="vacio">Tu lista está vacía.<br>Toca "Agregar canciones" para elegir tu música.</div>'; }
   else {
     const v = filtradas();
@@ -1861,6 +1906,7 @@ function pintarLista(){
     }
   }
   pintarFavs(); pintarBusqueda(); pintarTitulo();
+  if(typeof vistaAct !== 'undefined' && vistaAct === 'detalle') pintarDetalle();
 }
 function tocarDesdeInicio(i){ colaFav = false; irA(i); }
 function pintarFavs(){
@@ -3402,9 +3448,126 @@ function ponerTema(t, guardar = true){
 }
 document.querySelectorAll('#temas button').forEach(b => b.onclick = () => ponerTema(b.dataset.t));
 
+/* ---------- Páginas de ARTISTA y ÁLBUM (estilo Deezer) ---------- */
+let fotosArtistas = {};      // nombre normalizado → foto del artista (de Deezer); va en el respaldo
+try{ fotosArtistas = JSON.parse(localStorage.getItem('reproductorJAT_fotosArt')) || {}; }catch(e){}
+const pidiendoFoto = new Set();
+function guardarFotos(){ try{ localStorage.setItem('reproductorJAT_fotosArt', JSON.stringify(fotosArtistas)); }catch(e){} }
+async function fotoArtista(nombre){
+  const k = normal(nombre); if(!k) return '';
+  if(k in fotosArtistas) return fotosArtistas[k];
+  if(pidiendoFoto.has(k)) return '';
+  pidiendoFoto.add(k);
+  try{
+    const d = await jsonp('https://api.deezer.com/search/artist?output=jsonp&limit=5&q=' + encodeURIComponent(nombre));
+    const a = (d.data || []).find(x => normal(x.name) === k) || (d.data || []).find(x => normal(x.name).includes(k) || k.includes(normal(x.name)));
+    fotosArtistas[k] = a && (a.picture_xl || a.picture_big) && !/\/artist\/\//.test(a.picture_xl || '') ? (a.picture_xl || a.picture_big) : '';
+    guardarFotos(); guardarEstado();
+  }catch(e){ pidiendoFoto.delete(k); return ''; }      // sin internet: se intenta otro día
+  pidiendoFoto.delete(k);
+  return fotosArtistas[k];
+}
+function cancionesDeGrupo(por, g){
+  const v = []; lista.forEach((c, i) => { if(grupoDe(c, por) === g) v.push(i); });
+  // álbum: en orden de pista si se sabe; si no, por título
+  v.sort((a, b) => (lista[a].pista || 999) - (lista[b].pista || 999) || titulo(lista[a]).localeCompare(titulo(lista[b]), 'es'));
+  return v;
+}
+function portadaDeGrupo(v){ for(const i of v){ const u = urlMini(lista[i]); if(u) return u; } return ''; }
+
+// Inicio "por artista" / "por álbum": tarjetas con foto
+function pintarGrilla(ul){
+  const por = vista.por, mapa = new Map();
+  lista.forEach((c, i) => { const g = grupoDe(c, por); if(!mapa.has(g)) mapa.set(g, []); mapa.get(g).push(i); });
+  const grupos = [...mapa.keys()].sort((a, b) => (/desconocido$/.test(a) - /desconocido$/.test(b)) || a.localeCompare(b, 'es'));
+  const gr = document.createElement('div'); gr.className = 'grilla' + (por === 'artista' ? ' redonda' : '');
+  grupos.forEach(g => {
+    const v = mapa.get(g), b = document.createElement('button');
+    const im = document.createElement('div'); im.className = 'gImg';
+    const pon = u => { im.innerHTML = u ? `<img src="${u}" loading="lazy" alt="">` : ico(por === 'artista' ? 'mic' : 'note'); };
+    pon(portadaDeGrupo(v));
+    if(por === 'artista' && !/desconocido$/.test(g)){
+      const k = normal(g);
+      if(fotosArtistas[k]) pon(fotosArtistas[k]);
+      else if(!(k in fotosArtistas)) fotoArtista(g).then(u => { if(u) pon(u); });
+    }
+    const t = document.createElement('b'); t.textContent = g;
+    const n = document.createElement('small');
+    n.textContent = por === 'album' ? [lista[v[0]].artista, `${v.length} canc.`].filter(Boolean).join(' · ') : `${v.length} canción${v.length === 1 ? '' : 'es'}`;
+    b.append(im, t, n);
+    b.onclick = () => abrirDetalle(por, g);
+    gr.append(b);
+  });
+  ul.append(gr);
+}
+
+let pagDet = null;   // {por, g}
+function abrirDetalle(por, g){
+  pagDet = {por, g};
+  irVista('detalle'); pintarDetalle();
+}
+function pintarDetalle(){
+  if(!pagDet) return;
+  const {por, g} = pagDet, v = cancionesDeGrupo(por, g), sec = $('v-detalle');
+  if(!v.length){ irVista('inicio'); return; }
+  const c0 = lista[v[0]];
+  const cab = sec.querySelector('.dCab'), img = sec.querySelector('.dImg');
+  const ponFondo = u => { img.style.backgroundImage = u ? `url("${u}")` : ''; img.classList.toggle('vacia', !u); };
+  ponFondo(portadaDeGrupo(v));
+  const artista = por === 'artista' ? g : (c0.artista || '');
+  if(por === 'artista'){ const k = normal(g); if(fotosArtistas[k]) ponFondo(fotosArtistas[k]); else fotoArtista(g).then(u => { if(u && pagDet && pagDet.g === g) ponFondo(u); }); }
+  sec.querySelector('.dTit').textContent = g;
+  const de = sec.querySelector('.dDe'); de.innerHTML = '';
+  if(por === 'album' && artista){
+    const av = document.createElement('span'); av.className = 'dAv';
+    const k = normal(artista);
+    const ponAv = u => { av.style.backgroundImage = u ? `url("${u}")` : ''; };
+    ponAv(fotosArtistas[k] || portadaDeGrupo(v)); if(!fotosArtistas[k]) fotoArtista(artista).then(u => { if(u) ponAv(u); });
+    const t = document.createElement('span'); t.textContent = 'De ' + artista; t.className = 'dLink';
+    t.onclick = () => abrirDetalle('artista', artista);
+    de.append(av, t);
+  } else {
+    const albumes = new Set(v.map(i => lista[i].album).filter(Boolean));
+    de.textContent = `${v.length} canción${v.length === 1 ? '' : 'es'}` + (albumes.size ? ` · ${albumes.size} álbum${albumes.size === 1 ? '' : 'es'}` : '');
+  }
+  const todasFav = v.every(i => lista[i].fav);
+  sec.querySelector('.dFav').innerHTML = ico(todasFav ? 'heart' : 'heart-o');
+  sec.querySelector('.dFav').classList.toggle('on2', todasFav);
+  const ul = sec.querySelector('.dLista'); ul.innerHTML = '';
+  v.forEach((i, n) => {
+    const f = filaCancion(i, tocarDetalle);
+    const t = f.querySelector('.t span'); t.textContent = `${n + 1}. ${titulo(lista[i])}`;
+    if(por === 'artista' && lista[i].album) f.querySelector('.a').textContent = lista[i].album + (lista[i].bpm ? `  ·  🥁 ${lista[i].bpm} bpm` : '');
+    else if(por === 'album') f.querySelector('.a').textContent = lista[i].bpm ? `🥁 ${lista[i].bpm} bpm` + (lista[i].tono ? `  ·  🎼 ${lista[i].tono}` : '') : (lista[i].artista || '');
+    const h = document.createElement('button'); h.className = 'ib corazon'; h.innerHTML = ico(lista[i].fav ? 'heart' : 'heart-o'); h.title = 'Favorita';
+    h.onclick = ev => { ev.stopPropagation(); ponFav(i, !lista[i].fav); };
+    f.insertBefore(h, f.querySelector('.ib:last-child'));
+    ul.append(f);
+  });
+}
+function ponFav(i, si){ ponerFav(i, si); pintarDetalle(); }
+function colaDetalle(){ if(pagDet){ colaFav = false; vista = {por: pagDet.por, grupo: pagDet.g}; guardarEstado(); } }
+function tocarDetalle(i){ colaDetalle(); irA(i); pintarDetalle(); }
+$('dPlay').onclick = () => { const v = cancionesDeGrupo(pagDet.por, pagDet.g); if(!v.length) return; aleatorio = false; pintarModos(); colaDetalle(); irA(v[0]); pintarDetalle(); };
+$('dMezclar').onclick = () => { const v = cancionesDeGrupo(pagDet.por, pagDet.g); if(!v.length) return; aleatorio = true; pintarModos(); colaDetalle(); irA(v[Math.floor(Math.random() * v.length)]); toast('🔀 Aleatorio'); pintarDetalle(); };
+$('dFavB').onclick = () => {
+  const v = cancionesDeGrupo(pagDet.por, pagDet.g), todas = v.every(i => lista[i].fav);
+  v.forEach(i => ponerFav(i, !todas, false)); pintarLista(); pintarDetalle();
+  toast(todas ? 'Quitadas de favoritas' : `❤ ${v.length} canciones agregadas a favoritas`);
+};
+$('dAtras').onclick = () => atras();
+$('dMas').onclick = () => {
+  const v = cancionesDeGrupo(pagDet.por, pagDet.g), c0 = lista[v[0]];
+  const ops = [];
+  if(pagDet.por === 'album' && c0.artista) ops.push({t: '👤  Ver artista: ' + c0.artista, f: () => abrirDetalle('artista', c0.artista)});
+  ops.push({t: '🎛  Mezclar en el Mixer DJ', f: () => { colaDetalle(); if(actual < 0 || !v.includes(actual)) irA(v[0]); setTimeout(abrirMixer, 600); }});
+  ops.push({t: '▶  Ver en la lista de Inicio', f: () => { vista = {por: pagDet.por, grupo: pagDet.g}; irVista('inicio'); pintarLista(); }});
+  abrirHoja(pagDet.g, pagDet.por === 'artista' ? 'Artista' : 'Álbum', ops);
+};
+
 /* ---------- Pantallas: menú de abajo, mini reproductor, hoja de opciones ---------- */
 let vistaAct = 'inicio', vistaPrev = 'inicio';
-const TITULOS = {inicio: 'Mi música', explorar: 'Explorar', favoritos: 'Canciones favoritas', buscar: 'Búsqueda', ajustes: 'Ajustes'};
+const TITULOS = {detalle: '', inicio: 'Mi música', explorar: 'Explorar', favoritos: 'Canciones favoritas', buscar: 'Búsqueda', ajustes: 'Ajustes'};
 const NOMBRE_POR = {genero: 'Géneros', ritmo: 'Ritmo', velocidad: 'Por velocidad', dj: 'Mezcla DJ', artista: 'Artistas', album: 'Álbumes', anio: 'Años', carpeta: 'Carpetas'};
 function pintarTitulo(){
   let t = TITULOS[vistaAct];
@@ -3414,8 +3577,9 @@ function pintarTitulo(){
   document.body.classList.toggle('enAjustes', vistaAct === 'ajustes');
 }
 function irVista(v){
-  if(v !== vistaAct && vistaAct !== 'ajustes') vistaPrev = vistaAct;
-  if(v === 'ajustes' && vistaAct !== 'ajustes') marcarHist();
+  if(v !== vistaAct && vistaAct !== 'ajustes' && vistaAct !== 'detalle') vistaPrev = vistaAct;
+  if((v === 'ajustes' || v === 'detalle') && vistaAct !== v) marcarHist();
+  document.body.classList.toggle('enDetalle', v === 'detalle');
   vistaAct = v;
   document.querySelectorAll('.vista').forEach(s => s.classList.toggle('ver', s.id === 'v-' + v));
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
@@ -3434,6 +3598,8 @@ function atras(){
   if(mixerAbierto){ cerrarMixer(); return true; }
   if($('pantalla').classList.contains('ver')){ cerrarPantalla(); return true; }
   if(vistaAct === 'ajustes'){ irVista(vistaPrev); return true; }
+  if(vistaAct === 'detalle'){ irVista(vistaPrev === 'detalle' ? 'inicio' : vistaPrev); pintarLista(); return true; }
+  if(vistaAct === 'inicio' && (vista.por === 'artista' || vista.por === 'album') && vista.grupo !== null){ vista.grupo = null; pintarLista(); guardarEstado(); return true; }
   if(vistaAct === 'inicio' && vista.por !== 'todas'){ vista = {por: 'todas', grupo: null}; pintarLista(); guardarEstado(); return true; }
   if(vistaAct !== 'inicio'){ irVista('inicio'); return true; }
   return false;
@@ -3506,6 +3672,8 @@ function menuCancion(i){
       if(!flotAbierto()) $('bLetra').click();
     }},
   ];
+  if(c.artista) ops.push({t: '👤  Ver artista: ' + c.artista, f: () => { cerrarPantalla(); abrirDetalle('artista', c.artista); }});
+  if(c.album) ops.push({t: '💿  Ver álbum: ' + c.album, f: () => { cerrarPantalla(); abrirDetalle('album', c.album); }});
   ops.push({t: '🖼  Cambiar carátula', f: () => cambiarCaratula(i)});
   ops.push({t: '✏️  Editar datos (título, artista, álbum…)', f: () => editarDatos(i)});
   ops.push({t: '🔍  Reconocer por el sonido', f: () => reconocerTodas(c)});
