@@ -5,6 +5,17 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 21 nov 2026 (noche) — Fuera los mensajes de voz de WhatsApp
+**Pedido por Jorge:** que los mensajes de voz de WhatsApp no salgan en el reproductor.
+
+**Novedades**
+- Los mensajes de voz de WhatsApp (carpeta "WhatsApp Voice Notes", archivos "PTT-…") **ya no entran a la lista** del reproductor, ni en la app, ni en la web, ni en el carro (Android Auto).
+- Los que ya estaban en la lista se quitan solos al abrir la app.
+- **No se borra nada del celular:** los mensajes siguen en WhatsApp; solo dejan de aparecer en el reproductor.
+- Los audios que te mandan por WhatsApp que no son notas de voz (carpeta "WhatsApp Audio", archivos "AUD-…", que a veces son canciones) sí se siguen mostrando.
+
+---
+
 ## 21 nov 2026 (noche) — Carátulas automáticas
 **Pedido por Jorge:** que el reproductor encuentre las carátulas de las canciones que salen sin portada (cuadro morado con la nota).
 

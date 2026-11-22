@@ -117,6 +117,8 @@ object Biblioteca {
                     } else {
                         s(MediaStore.Audio.Media.DATA).substringBeforeLast('/').substringAfter("/0/")
                     }
+                    // los mensajes de voz de WhatsApp no son música: no salen en el carro
+                    if (carpeta.contains("voice notes", ignoreCase = true) || Regex("^PTT-\\d{8}-WA", RegexOption.IGNORE_CASE).containsMatchIn(archivo)) continue
                     if (album.isBlank() || album == carpeta.substringAfterLast('/')) album = ""
                     val tituloMs = s(MediaStore.Audio.Media.TITLE)
                     val anioMs = l(MediaStore.Audio.Media.YEAR).let { if (it in 1000..2999) it.toString() else "" }

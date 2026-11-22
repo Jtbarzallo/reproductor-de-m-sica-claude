@@ -18,6 +18,7 @@
 - [x] Favoritas con ❤ (21 nov): sección Favoritos, agregar varias con buscador, se reproduce dentro de las favoritas; van en el respaldo
 - [x] Búsqueda por título, artista, álbum o género (21 nov)
 - [x] Carátulas automáticas desde internet (21 nov): iTunes → Deezer → MusicBrainz, solo si título y artista coinciden; botón para buscar las que faltan y para una canción; también en Android Auto; van en el respaldo
+- [x] Mensajes de voz de WhatsApp fuera de la lista (21 nov), en la app, la web y Android Auto; no se borran del celular
 
 ## Pendientes / ideas
 - [ ] Favoritas también en Android Auto (una pestaña "Favoritas" en el carro)

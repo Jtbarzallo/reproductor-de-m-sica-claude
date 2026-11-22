@@ -1711,7 +1711,7 @@ function quitar(i){
 $('archivos').addEventListener('change', e => {
   const nuevos = [...e.target.files];
   nuevos.forEach(f => {
-    if(lista.some(c => c.nombre === f.name && !c.deCarpeta)) return;
+    if(esNotaDeVoz(f.name) || lista.some(c => c.nombre === f.name && !c.deCarpeta)) return;
     const c = { id: Date.now() + '_' + Math.random().toString(36).slice(2), nombre: f.name, blob: f };
     lista.push(c); guardarCancion(c);
   });
@@ -1745,8 +1745,18 @@ async function listarCarpeta(dir, base = '', out = []){
   return out;
 }
 function infoCarpeta(txt){ $('infoCarpeta').textContent = txt; }
+// Mensajes de voz de WhatsApp (carpeta "WhatsApp Voice Notes" o archivos PTT-…): no son música, no entran a la lista
+function esNotaDeVoz(ruta){ return /voice notes/i.test(ruta || '') || /(^|\/)PTT-\d{8}-WA/i.test(ruta || ''); }
+function quitarNotasDeVoz(){
+  const cur = lista[actual]; let n = 0;
+  lista = lista.filter(c => { if(esNotaDeVoz(c.ruta || c.nombre)){ borrarCancion(c.id); n++; return false; } return true; });
+  if(n){ actual = cur ? lista.indexOf(cur) : -1; if(actual < 0 && cur){ cancelarMezcla(); audio.pause(); audio.removeAttribute('src'); quitarPortada(); pintarMini(); } }
+  return n;
+}
 function aplicarRutas(rutas, conBlobs){
   // conBlobs: Map ruta->File (modo sin acceso permanente); si no, se leen de la carpeta cuando hace falta
+  rutas = rutas.filter(r => !esNotaDeVoz(r));
+  quitarNotasDeVoz();
   const set = new Set(rutas), existentes = new Map();
   lista.forEach(c => { if(c.deCarpeta) existentes.set(c.ruta, c); });
   let nuevas = 0, quitadas = 0;
@@ -2535,6 +2545,7 @@ $('bMezclar').onclick = () => {
 /* ---------- Inicio ---------- */
 (async () => {
   try{ await abrirDB(); lista = await leerTodas(); }catch(e){ lista = []; }
+  quitarNotasDeVoz();
   const e = leerEstado();
   if(e){ respaldoPend = e; aplicarEstado(e, true); }
   $('clave').value = claveGuardada();
