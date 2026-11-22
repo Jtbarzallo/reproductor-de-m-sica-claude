@@ -28,6 +28,7 @@
 - [x] Transmitir a otro aparato Bluetooth (22 nov): selector de salida de Android, ajustes de Bluetooth y "Sonando en"
 - [x] Mixer estilo DJ (22 nov): ondas de colores de las dos canciones, golpes/compases, BPM, tono Camelot, loop de compases, mezclar ahora, elegir la siguiente por compatibilidad; tono en el respaldo
 - [x] Mixer DJ de dos platos (22 nov): suenan a la vez, SYNC de velocidad y golpes con corrección automática, crossfader, Vol y Bajos por plato, carga sola la siguiente
+- [x] Mixer: mover las pistas a mano (22 nov): arrastrar la onda, ±1 golpe, ⏪/⏩ mantenidos, barra de velocidad ±10 %
 
 ## Pendientes / ideas
 - [ ] Favoritas también en Android Auto (una pestaña "Favoritas" en el carro)

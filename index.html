@@ -152,6 +152,12 @@
   #mixer .mxSync.on{background:#2bff5a!important;color:#002a0c!important}
   #mixer .mxLp.on{background:#19d3ff!important;color:#00222c!important}
   .mxDeslis{display:flex;gap:10px;width:100%}
+  .mxMover{display:flex;align-items:center;gap:6px;width:100%}
+  .mxMover button{padding:10px 12px;font-size:16px;touch-action:none;user-select:none;-webkit-user-select:none}
+  .mxMover label{flex:1;font-size:13px;color:#c9cbd3;display:flex;flex-direction:column;gap:2px}
+  .mxMover label b{color:#fff;font-weight:600}
+  .mxMover input{width:100%;accent-color:#fff}
+  #mixer .mxMover button.empuja{background:#ffd23f!important;color:#2a2000!important}
   .mxDeslis label{flex:1;font-size:13px;color:#c9cbd3;display:flex;align-items:center;gap:6px}
   .mxDeslis input{flex:1;accent-color:#fff}
   .mxXfZona{background:#15171d;margin:4px 10px;border-radius:14px;padding:8px 10px}
@@ -508,6 +514,11 @@
     <button class="mxSync" title="Igualar velocidad y golpes con el otro plato">SYNC</button>
     <button class="mxLp" title="Repetir compases">🔁</button>
     <button class="mxElegir" title="Cargar otra canción en este plato">🎯</button>
+    <div class="mxMover"><button class="mxAtras" title="Mantén presionado: frena un poquito para atrasarla">⏪</button>
+      <button class="mxMenos1" title="Un golpe atrás">−1</button>
+      <label>Velocidad <b class="mxVv">0,0 %</b><input type="range" class="mxVel" min="0.9" max="1.1" step="0.001" value="1"></label>
+      <button class="mxMas1" title="Un golpe adelante">+1</button>
+      <button class="mxAdel" title="Mantén presionado: acelera un poquito para adelantarla">⏩</button></div>
     <div class="mxDeslis"><label>Vol <input type="range" class="mxVol" min="0" max="1.2" step="0.01" value="1"></label>
       <label>Bajos <input type="range" class="mxBajo" min="-26" max="6" step="1" value="0"></label></div>
   </div>
@@ -521,6 +532,11 @@
     <button class="mxSync" title="Igualar velocidad y golpes con el otro plato">SYNC</button>
     <button class="mxLp" title="Repetir compases">🔁</button>
     <button class="mxElegir" title="Cargar otra canción en este plato">🎯</button>
+    <div class="mxMover"><button class="mxAtras" title="Mantén presionado: frena un poquito para atrasarla">⏪</button>
+      <button class="mxMenos1" title="Un golpe atrás">−1</button>
+      <label>Velocidad <b class="mxVv">0,0 %</b><input type="range" class="mxVel" min="0.9" max="1.1" step="0.001" value="1"></label>
+      <button class="mxMas1" title="Un golpe adelante">+1</button>
+      <button class="mxAdel" title="Mantén presionado: acelera un poquito para adelantarla">⏩</button></div>
     <div class="mxDeslis"><label>Vol <input type="range" class="mxVol" min="0" max="1.2" step="0.01" value="1"></label>
       <label>Bajos <input type="range" class="mxBajo" min="-26" max="6" step="1" value="0"></label></div>
   </div>
@@ -528,7 +544,7 @@
   <div class="mxInfo" id="mxInfoB"><span class="mxLetra mxB">B</span><div class="por"></div><div class="tx"><div class="mxT"></div><div class="mxAr"></div></div>
     <div class="der"><div class="mxBpm"></div><div><span class="mxTono"></span> <span id="mxTiempoB" class="mxTiempo"></span></div></div></div>
   <div id="mxCompat"></div>
-  <div class="mxNota">Cómo se juega: con las dos sonando, toca <b>SYNC</b> en un plato para igualar su velocidad y unir los golpes (las líneas blancas quedan alineadas). Luego mueve el <b>crossfader</b> (A ↔ B) o baja el <b>Vol</b> de una para que suene la otra. Truco DJ: baja los <b>Bajos</b> de la que entra y súbelos cuando la otra salga. Azul = graves · Naranja = medios · Blanco = agudos · Verde = lo que suena.</div>
+  <div class="mxNota">Cómo se juega: con las dos sonando, toca <b>SYNC</b> en un plato para igualar su velocidad y unir los golpes (las líneas blancas quedan alineadas). Para <b>mover una pista</b> a mano: arrástrala con el dedo, toca <b>−1 / +1</b> (un golpe) o mantén <b>⏪ / ⏩</b> para frenarla o apurarla un poquito; la <b>Velocidad</b> la cambias con su barra. Luego mueve el <b>crossfader</b> (A ↔ B) o baja el <b>Vol</b> de una para que suene la otra. Truco DJ: baja los <b>Bajos</b> de la que entra y súbelos cuando la otra salga. Azul = graves · Naranja = medios · Blanco = agudos · Verde = lo que suena.</div>
 </div>
 
 <div id="velo"></div>
@@ -2922,6 +2938,7 @@ function golpesDe(c){
 }
 
 // ===== Consola DJ: Plato A (arriba) y Plato B (abajo) suenan a la vez; tú mezclas =====
+const mxArr = [null, null], mxVelArr = [false, false];   // tiempo mientras se arrastra la onda con el dedo
 let mixerAbierto = false, mxSeg = 12, mxAbrioMesa = false, mxPintado = [undefined, undefined], mxCuadro = 0;
 const mxLoops = [null, null], syncLock = [false, false], syncM = [1, 1];
 const LETRA_PLATO = ['A', 'B'];
@@ -2960,7 +2977,7 @@ function dibujarOnda(cv, k){
   const c = enPlato[k], d = decks[k], {w, h, dpr} = tamCanvas(cv), x = cv.getContext('2d');
   x.clearRect(0, 0, w, h);
   if(!c) return;
-  const t = d.currentTime || 0, r = d.playbackRate || 1;
+  const t = mxArr[k] ? mxArr[k].t : (d.currentTime || 0), r = d.playbackRate || 1;
   // misma escala de TIEMPO REAL en los dos platos: así, si están igualados, los golpes quedan uno encima del otro
   const xP = Math.round(w * 0.25), pps = w / (mxSeg * r), mid = h / 2;
   const o = ondas.get(c.id);
@@ -3014,6 +3031,9 @@ function cuadroMixer(){
       const d = decks[k], c = enPlato[k];
       $('mxTiempo' + LETRA_PLATO[k]).textContent = c ? fmt(d.currentTime) + ' / ' + fmt(d.duration) : '';
       mxEl(k, '.mxP').innerHTML = ico(d.paused ? 'play' : 'pause');
+      const r = d.playbackRate || 1;
+      if(!mxVelArr[k]) mxEl(k, '.mxVel').value = r;
+      mxEl(k, '.mxVv').textContent = (r >= 1 ? '+' : '') + ((r - 1) * 100).toFixed(1).replace('.', ',') + ' %';
       if(mxCuadro % 24 === 0) pintarInfoPlato(k);
     }
     if(!mxXfArr) $('mxXf').value = xfDeGanancias();
@@ -3158,11 +3178,45 @@ $('mxZmenos').onclick = () => { mxSeg = Math.min(60, mxSeg * 1.5); };
   mxEl(k, '.mxElegir').onclick = () => elegirParaPlato(k);
   mxEl(k, '.mxVol').oninput = e => { despertarAudio(); if(gPlato[k]) gPlato[k].gain.setTargetAtTime(+e.target.value, ctxA.currentTime, 0.02); };
   mxEl(k, '.mxBajo').oninput = e => { despertarAudio(); if(gBajo){ gBajo[k].gain.cancelScheduledValues(0); gBajo[k].gain.setTargetAtTime(+e.target.value, ctxA.currentTime, 0.02); } };
-  // arrastrar la onda para moverse en esa canción
-  const cv = $('mxOnda' + LETRA_PLATO[k]); let x0 = null, t0 = 0;
-  cv.addEventListener('pointerdown', e => { if(!enPlato[k]) return; x0 = e.clientX; t0 = d.currentTime; cv.setPointerCapture(e.pointerId); });
-  cv.addEventListener('pointermove', e => { if(x0 === null) return; const pps = cv.getBoundingClientRect().width / (mxSeg * (d.playbackRate || 1)); d.currentTime = Math.max(0, Math.min((d.duration || 1) - 0.3, t0 - (e.clientX - x0) / pps)); });
-  cv.addEventListener('pointerup', () => { x0 = null; });
+  // MOVER LA PISTA con el dedo: arrastrar la onda (como girar el disco). La onda se mueve al instante
+  // y la canción salta a ese punto (mientras arrastras y al soltar).
+  const cv = $('mxOnda' + LETRA_PLATO[k]); let x0 = null, t0 = 0, ult = 0;
+  const limitar = t => Math.max(0, Math.min((d.duration || 1) - 0.3, t));
+  cv.addEventListener('pointerdown', e => {
+    if(!enPlato[k]) return; e.preventDefault();
+    x0 = e.clientX; t0 = d.currentTime; mxArr[k] = {t: t0}; cv.setPointerCapture(e.pointerId);
+    if(syncLock[k]){ syncLock[k] = false; pintarBotonesPlato(k); toast('Sync apagado: la mueves tú'); }
+  });
+  cv.addEventListener('pointermove', e => {
+    if(x0 === null) return;
+    const pps = cv.getBoundingClientRect().width / (mxSeg * (d.playbackRate || 1));
+    const t = limitar(t0 - (e.clientX - x0) / pps); mxArr[k].t = t;
+    if(Date.now() - ult > 150){ ult = Date.now(); d.currentTime = t; t0 = t; x0 = e.clientX; mxArr[k].t = t; }
+  });
+  const soltar = () => { if(x0 === null) return; x0 = null; if(mxArr[k]) d.currentTime = mxArr[k].t; setTimeout(() => { mxArr[k] = null; }, 60); };
+  cv.addEventListener('pointerup', soltar); cv.addEventListener('pointercancel', soltar);
+  // ⏪ ⏩: mientras los mantienes presionados, la canción va un poquito más lenta o más rápida (para acomodar los golpes a oído)
+  const empuje = (sel, f) => {
+    const b = mxEl(k, sel); let base = null;
+    const ini = e => { e.preventDefault(); if(!enPlato[k]) return; if(syncLock[k]){ syncLock[k] = false; pintarBotonesPlato(k); }
+      base = d.playbackRate || 1; velocidad(d, base * f); b.classList.add('empuja'); b.setPointerCapture && b.setPointerCapture(e.pointerId); };
+    const fin = () => { if(base === null) return; velocidad(d, base); base = null; b.classList.remove('empuja'); };
+    b.addEventListener('pointerdown', ini); b.addEventListener('pointerup', fin); b.addEventListener('pointercancel', fin); b.addEventListener('pointerleave', fin);
+    b.addEventListener('contextmenu', e => e.preventDefault());
+  };
+  empuje('.mxAtras', 0.94); empuje('.mxAdel', 1.06);
+  // −1 / +1: mueve la pista exactamente un golpe
+  const golpe = dir => { const c = enPlato[k]; if(!c) return; const g = golpesDe(c); d.currentTime = limitar(d.currentTime + dir * (g ? g.p : 0.5));
+    if(syncLock[k]){ syncLock[k] = false; pintarBotonesPlato(k); } };
+  mxEl(k, '.mxMenos1').onclick = () => golpe(-1);
+  mxEl(k, '.mxMas1').onclick = () => golpe(1);
+  // Velocidad a mano (±10 %)
+  mxEl(k, '.mxVel').addEventListener('input', e => {
+    despertarAudio(); if(!mesaManual) tomarControl();
+    if(syncLock[k]){ syncLock[k] = false; pintarBotonesPlato(k); }
+    velocidad(d, +e.target.value); mxVelArr[k] = true;
+  });
+  mxEl(k, '.mxVel').addEventListener('change', () => { mxVelArr[k] = false; });
 });
 $('mxXf').addEventListener('input', e => { mxXfArr = true; clearInterval(xfAnim); xfAnim = null; $('xf').value = e.target.value; aplicarXF(+e.target.value); });
 $('mxXf').addEventListener('change', () => { mxXfArr = false; });

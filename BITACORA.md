@@ -5,6 +5,20 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 22 nov 2026 — Mixer: mover las pistas a mano
+**Pedido por Jorge:** poder mover las pistas en el mixer.
+
+**Novedades** (en cada plato, A y B)
+- **Arrastrar la onda con el dedo** para mover la pista hacia adelante o atrás (como girar el disco). La onda sigue al dedo al instante y la canción salta a ese punto.
+- **−1 / +1**: mueve la pista exactamente **un golpe** atrás o adelante.
+- **⏪ / ⏩ mantenidos**: mientras los presionas la canción va un 6 % más lenta o más rápida, y al soltar vuelve a su velocidad. Sirve para acomodar los golpes a oído, como empujar el disco.
+- **Barra de Velocidad** (±10 %) con el porcentaje a la vista, para igualar la velocidad a mano.
+- Si mueves una pista a mano, su **SYNC se apaga** (si no, la devolvería a su sitio).
+
+**Respaldo:** no guarda datos nuevos.
+
+---
+
 ## 22 nov 2026 — Mixer DJ: las dos canciones a la vez, igualadas
 **Pedido por Jorge:** que el mixer iguale las canciones y suenen al mismo tiempo, para ir quitando el volumen de una y que suene la otra, como un DJ.
 
