@@ -149,6 +149,7 @@
   .mxBotones button{font-size:15px;padding:10px 12px;border-radius:12px;font-weight:700}
   #mixer .mxBotones .mxBig{width:52px;height:52px;border-radius:50%;background:#fff;color:#0e0f13;display:flex;align-items:center;justify-content:center;padding:0}
   #mixer .mxBotones .mxBig svg.i{width:30px;height:30px}
+  #mixer #mxAuto.on{background:#2bff5a!important;color:#002a0c!important}
   #mixer .mxSync.on{background:#2bff5a!important;color:#002a0c!important}
   #mixer .mxLp.on{background:#19d3ff!important;color:#00222c!important}
   .mxDeslis{display:flex;gap:10px;width:100%}
@@ -303,7 +304,7 @@
 <section class="vista ver" id="v-inicio">
   <div class="chipsZona">
     <div class="chips" id="porChips">
-      <button data-p="todas">Todas</button><button data-p="dj">🎚 Mezcla DJ</button><button data-p="genero">Género</button><button data-p="ritmo">Ritmo</button>
+      <button data-p="todas">Todas</button><button data-p="dj">🎚 Mezcla DJ</button><button data-p="genero">Género</button><button data-p="ritmo">Ritmo</button><button data-p="velocidad">🥁 Velocidad</button>
       <button data-p="artista">Artista</button><button data-p="album">Álbum</button><button data-p="anio">Año</button><button data-p="carpeta">Carpeta</button>
     </div>
     <div class="chips" id="grupoChips"></div>
@@ -318,6 +319,7 @@
     <button data-p="genero" style="background:#14224a">Géneros<small>Salsa, pop, rock…</small></button>
     <button data-p="ritmo" style="background:#e2553a">Ritmo<small>Lento · moderado · rápido</small></button>
     <button data-p="dj" style="background:#1f8f6a">Mezcla DJ<small>Canciones que se mezclan</small></button>
+    <button data-p="velocidad" style="background:#b35c00">Por velocidad<small>Grupos de tiempo parecido (bpm)</small></button>
     <button data-p="artista" style="background:#2f7de1">Artistas</button>
     <button data-p="album" style="background:#b8327a">Álbumes</button>
     <button data-p="anio" style="background:#8a6d00">Años</button>
@@ -504,6 +506,7 @@
 <!-- ===== Mixer (estilo DJ) ===== -->
 <div id="mixer">
   <div class="mxCab"><button class="ib" id="mxCerrar" title="Cerrar">✕</button><h2>Mixer DJ</h2>
+    <button class="mxZ" id="mxAuto" title="Igualar el tiempo solo al cargar una canción">🔗</button>
     <button class="mxZ" id="mxZmenos" title="Ver más tiempo">🔍−</button><button class="mxZ" id="mxZmas" title="Acercar">🔍+</button></div>
   <div class="mxInfo" id="mxInfoA"><span class="mxLetra mxA">A</span><div class="por"></div><div class="tx"><div class="mxT"></div><div class="mxAr"></div></div>
     <div class="der"><div class="mxBpm"></div><div><span class="mxTono"></span> <span id="mxTiempoA" class="mxTiempo"></span></div></div></div>
@@ -580,6 +583,8 @@ let lista = [];          // {id, nombre, blob?}
 let actual = -1, aleatorio = false, repetir = false;
 let respaldoPend = null; // respaldo cargado esperando canciones
 let letraModo = {completa: true, fondoCar: false, tamC: 30};
+let mxAuto = true;   // mixer: igualar el tiempo solo al cargar una canción
+try{ mxAuto = localStorage.getItem('reproductorJAT_mxAuto') !== '0'; }catch(e){}
 let tema = 'azul';   // color de la app: 'azul' (azul marino) o 'rojo'
 try{ const t = localStorage.getItem('reproductorJAT_tema'); if(t === 'azul' || t === 'rojo') tema = t; }catch(e){}   // letra: pantalla completa o ventanita, fondo de color o carátula
 
@@ -626,7 +631,7 @@ function estado(){
     etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm || c.caratula || c.tagManual || c.tono).map(c => [c.nombre, {titulo:c.titulo||'', caratula:c.caratula||'', manual:c.tagManual?1:0, carM:c.carManual?1:0, tono:c.tono||'', tonoNom:c.tonoNom||'', artista:c.artista||'', album:c.album||'', anio:c.anio||'', genero:c.genero||'', bpm:c.bpm||0, pulso:c.pulso||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
     vista, favoritas: lista.filter(c => c.fav).map(c => c.nombre),
     clave: claveGuardada(), actual: lista[actual]?.nombre || null,
-    posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg, eq: eqVals, ocho: ochoSeg, letraModo, tema };
+    posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg, eq: eqVals, ocho: ochoSeg, letraModo, tema, mxAuto };
 }
 const APP = !!window.AndroidJAT;   // dentro de la app Android
 let syncTimer = null;
@@ -652,6 +657,7 @@ function aplicarEstado(e, conPos, soloLista = false){
     if(e.estereo && PRESETS[e.estereo]) ponerEstereo(e.estereo, false);
     if(Array.isArray(e.eq) && e.eq.length === 5) ponerEQ(e.eq, false);
     if(typeof e.ocho === 'number') poner8D(e.ocho, false);
+    if(typeof e.mxAuto === 'boolean'){ mxAuto = e.mxAuto; try{ localStorage.setItem('reproductorJAT_mxAuto', mxAuto ? '1' : '0'); }catch(_){} }
     if(e.tema && TEMAS[e.tema]){ try{ localStorage.setItem('reproductorJAT_tema', e.tema); }catch(_){} ponerTema(e.tema, false); }
     if(e.letraModo && typeof e.letraModo === 'object'){ Object.assign(letraModo, e.letraModo); try{ localStorage.setItem('reproductorJAT_letraModo', JSON.stringify(letraModo)); }catch(_){} aplicarModoLetra(); }
   }
@@ -1584,6 +1590,7 @@ async function leerPendientes(){
     if(lista[actual] === c) mostrarActual();
   }
   buscarCaratulas();     // las que no traen portada: se busca la carátula en internet
+  medirTodo();           // velocidad (bpm) y tono de toda la música, poco a poco
 }
 let urlPortada = null;
 function mostrarActual(){
@@ -1717,6 +1724,7 @@ function grupoDe(c, por){
   switch(por){
     case 'genero': return c.genero || 'Sin género';
     case 'ritmo': return categoriaRitmo(c.bpm) || 'Sin analizar';
+    case 'velocidad': { if(!c.bpm) return 'Sin medir'; const t = Math.round(tempoDJ(c.bpm)), lo = Math.floor(t / 10) * 10; return `${lo}–${lo + 9} bpm`; }
     case 'dj': return grupoDJ(c);
     case 'artista': return c.artista || 'Artista desconocido';
     case 'album': return c.album || 'Álbum desconocido';
@@ -1746,6 +1754,7 @@ function favIdx(){ const v = []; lista.forEach((c, i) => { if(c.fav) v.push(i); 
 function filtradas(){
   const v = [];
   lista.forEach((c, i) => { if(vista.por === 'todas' || vista.grupo === null || grupoDe(c, vista.por) === vista.grupo) v.push(i); });
+  if(vista.por === 'velocidad') v.sort((a, b) => (lista[a].bpm ? tempoDJ(lista[a].bpm) : 999) - (lista[b].bpm ? tempoDJ(lista[b].bpm) : 999) || a - b);
   if(vista.por === 'dj'){
     // de la más lenta a la más rápida: cada canción queda junto a las que mejor mezclan con ella; las no mezclables al final
     const clave = i => { const c = lista[i]; return mezclable(c) ? tempoDJ(c.bpm) : (c.bpm ? 1000 : 2000); };
@@ -1762,7 +1771,8 @@ function pintarChips(){
   lista.forEach(c => { const g = grupoDe(c, vista.por); cuenta.set(g, (cuenta.get(g) || 0) + 1); });
   const orden = vista.por === 'ritmo' ? ['Lento','Moderado','Rápido','Sin analizar'] : null;
   const numDJ = g => /^\d/.test(g) ? parseInt(g) : g === 'No mezclables' ? 1000 : 2000;
-  const grupos = [...cuenta.keys()].sort((a, b) => vista.por === 'dj' ? numDJ(a) - numDJ(b) : orden ? orden.indexOf(a) - orden.indexOf(b)
+  const numV = g => /^\d/.test(g) ? parseInt(g) : 9999;
+  const grupos = [...cuenta.keys()].sort((a, b) => vista.por === 'velocidad' ? numV(a) - numV(b) : vista.por === 'dj' ? numDJ(a) - numDJ(b) : orden ? orden.indexOf(a) - orden.indexOf(b)
     : (/^(Sin |Artista desc|Álbum desc)/.test(a) - /^(Sin |Artista desc|Álbum desc)/.test(b)) || a.localeCompare(b, 'es'));
   if(vista.grupo !== null && !cuenta.has(vista.grupo)) vista.grupo = null;
   const mk = (txt, g, n) => {
@@ -1801,7 +1811,8 @@ function filaCancion(i, alTocar, conExtra = false){
   const t = document.createElement('div'); t.className = 't';
   const ts = document.createElement('span'); ts.textContent = titulo(c); t.append(ts);
   if(c.letra || c.letraSync) t.insertAdjacentHTML('beforeend', ico('mic'));
-  const a = document.createElement('div'); a.className = 'a'; a.textContent = c.artista || c.album || 'Artista desconocido';
+  const a = document.createElement('div'); a.className = 'a';
+  a.textContent = (c.artista || c.album || 'Artista desconocido') + (c.bpm ? `  ·  🥁 ${c.bpm} bpm` : '') + (c.tono ? `  ·  🎼 ${c.tono}` : '');
   tx.append(t, a);
   if(conExtra){
     const extra = [c.genero, c.bpm ? `🥁 ${categoriaRitmo(c.bpm)} (${c.bpm})` : '', c.pulso ? (mezclable(c) ? '🎚 mezclable' : '🎚 difícil de mezclar') : ''].filter(Boolean).join(' · ');
@@ -1822,7 +1833,7 @@ function pintarLista(){
     const v = filtradas();
     if(!v.length) ul.innerHTML = '<div class="vacio">No hay canciones en este grupo</div>';
     else {
-      const frag = document.createDocumentFragment(), conExtra = ['genero','ritmo','dj'].includes(vista.por);
+      const frag = document.createDocumentFragment(), conExtra = ['genero','ritmo','dj','velocidad'].includes(vista.por);
       v.forEach(i => frag.append(filaCancion(i, tocarDesdeInicio, conExtra)));
       ul.append(frag);
     }
@@ -2086,6 +2097,36 @@ async function detectarBPM(c){
   return {bpm: Math.round(bpm), pulso: Math.max(1, Math.min(100, Math.round(100 * parejo * Math.max(0, Math.min(1, (salto - 0.06) / 0.08)))))};
 }
 let clasificando = false;
+// Tono de una canción sin calcular su onda (más liviano)
+async function tonoDe(c){
+  const b = await archivoDe(c);
+  const buf = await new OfflineAudioContext(1, 1, 11025).decodeAudioData(await b.arrayBuffer());
+  return detectarTono(buf);
+}
+// Mide sola, en segundo plano y de una en una, la velocidad (bpm) y el tono de las canciones que falten
+let midiendo = false;
+async function medirTodo(){
+  if(midiendo) return; midiendo = true;
+  let n = 0;
+  const falta = c => c.leido && !c.medidoNo && (!c.bpm || !c.pulso || !c.tono);
+  try{
+    for(;;){
+      if(document.hidden || mixerAbierto || mezclando || clasificando){ await espera(4000); continue; }   // no estorba mientras mezclas
+      const pend = lista.filter(falta); if(!pend.length) break;
+      const c = pend[0];
+      if(!clasificando) $('estadoClas').textContent = `🥁 Midiendo velocidad y tono de tu música: faltan ${pend.length}…`;
+      try{
+        if(!c.bpm || !c.pulso){ const a = await detectarBPM(c); if(a.bpm) c.bpm = a.bpm; c.pulso = a.pulso || 1; }
+        if(!c.tono){ const t = await tonoDe(c); if(t){ c.tono = t.cam; c.tonoNom = t.nom; } }
+      }catch(e){}
+      if(!c.bpm || !c.tono) c.medidoNo = 1;        // no se pudo: no se insiste (se puede con "Clasificar música")
+      if(lista.includes(c)) guardarCancion(c);
+      if(++n % 5 === 0){ pintarLista(); guardarEstado(); }
+      await espera(700);
+    }
+    if(n && !clasificando) $('estadoClas').textContent = `✔ Velocidad y tono medidos (${lista.filter(c => c.bpm).length} de ${lista.length} con bpm).`;
+  } finally { midiendo = false; if(n){ pintarLista(); guardarEstado(); } }
+}
 $('bClasificar').onclick = async () => {
   if(clasificando) return;
   if(!lista.length){ $('estadoClas').textContent = 'Primero elige tu carpeta de música.'; return; }
@@ -3022,7 +3063,7 @@ function cuadroMixer(){
     const c = enPlato[k];
     if(c !== mxPintado[k]){
       mxPintado[k] = c; mxLoops[k] = null; syncLock[k] = false; pintarBotonesPlato(k); pintarInfoPlato(k);
-      if(c){ prepararBordes(c).then(() => pintarInfoPlato(k)); analizarOnda(c).then(() => { pintarInfoPlato(0); pintarInfoPlato(1); }); }
+      if(c){ prepararBordes(c).then(() => pintarInfoPlato(k)); analizarOnda(c).then(() => { pintarInfoPlato(0); pintarInfoPlato(1); }); autoIgualar(k, c); }
     }
     dibujarOnda($('mxOnda' + LETRA_PLATO[k]), k);
   }
@@ -3123,24 +3164,53 @@ function ponerLoop(k, n){
 }
 // --- Elegir canción para un plato (primero las que mejor se mezclan con el otro) ---
 function elegirParaPlato(k){
-  const o = enPlato[1 - k], go = o ? golpesDe(o) : null, ta = go ? tempoDJ(60 / go.p) : (o && o.bpm ? tempoDJ(o.bpm) : 0);
-  const cand = lista.map((c, i) => ({c, i})).filter(x => x.c !== o);
-  const puntos = x => {
-    const tb = x.c.bpm ? tempoDJ(x.c.bpm) : 0, vel = ta && tb ? Math.abs(tb / ta - 1) : 1;
-    const ok = tonosCombinan(o && o.tono, x.c.tono);
-    return (vel <= 0.06 ? 0 : 2 + vel) + (ok ? 0 : ok === false ? 1 : 0.5);
-  };
-  cand.sort((a, b) => puntos(a) - puntos(b));
+  const o = enPlato[1 - k], go = o ? golpesDe(o) : null;
+  const ta = go ? tempoDJ(60 / go.p) * (decks[1 - k].playbackRate || 1) : (o && o.bpm ? tempoDJ(o.bpm) : 0);
+  let soloParecidas = !!ta;
+  const caja = document.createElement('div'); caja.style.padding = '4px 22px 6px';
+  const bt = document.createElement('button'); bt.style.cssText = 'width:100%;font-size:15px';
   const cont = document.createElement('div');
-  cand.slice(0, 80).forEach(x => {
-    const f = filaCancion(x.i, () => { cerrarHoja(); cargarEnPlato(k, x.i); });
-    const tb = x.c.bpm ? tempoDJ(x.c.bpm) : 0, ok = tonosCombinan(o && o.tono, x.c.tono);
-    const info = document.createElement('div'); info.className = 'x';
-    info.textContent = [tb ? `🥁 ${x.c.bpm} bpm` + (ta && Math.abs(tb / ta - 1) <= 0.06 ? ' ✔' : '') : '', x.c.tono ? `🎼 ${x.c.tono}` + (ok ? ' ✔' : '') : ''].filter(Boolean).join(' · ');
-    f.querySelector('.tx').append(info); f.querySelector('.ib').remove();
-    cont.append(f);
-  });
-  abrirHoja('Cargar en el plato ' + LETRA_PLATO[k], o ? 'Primero las que mejor se mezclan con "' + titulo(o) + '" ✔' : '', [cont]);
+  caja.append(bt);
+  const pintar = () => {
+    bt.textContent = soloParecidas ? `🥁 Solo tiempo parecido a ${ta.toFixed(0)} bpm (±6 %) · tocar para ver todas` : '🥁 Mostrando todas · tocar para ver solo las de tiempo parecido';
+    bt.style.display = ta ? '' : 'none';
+    cont.innerHTML = '';
+    const cand = lista.map((c, i) => {
+      const tb = c.bpm ? tempoDJ(c.bpm) : 0, ajuste = ta && tb ? ta / tb - 1 : null;
+      return {c, i, tb, ajuste, ok: tonosCombinan(o && o.tono, c.tono)};
+    }).filter(x => x.c !== o && (!soloParecidas || (x.ajuste !== null && Math.abs(x.ajuste) <= 0.06)));
+    cand.sort((x, y) => ((x.ajuste === null ? 9 : Math.abs(x.ajuste) * 10) + (x.ok ? 0 : x.ok === false ? 0.6 : 0.3)) - ((y.ajuste === null ? 9 : Math.abs(y.ajuste) * 10) + (y.ok ? 0 : y.ok === false ? 0.6 : 0.3)));
+    if(!cand.length){ cont.innerHTML = '<div class="vacio">No hay canciones con tiempo parecido medido todavía. Toca el botón de arriba para ver todas.</div>'; return; }
+    cand.slice(0, 120).forEach(x => {
+      const f = filaCancion(x.i, () => { cerrarHoja(); cargarEnPlato(k, x.i); });
+      const info = document.createElement('div'); info.className = 'x';
+      const aj = x.ajuste === null ? '' : Math.abs(x.ajuste) < 0.002 ? 'mismo tiempo ✔' : `hay que ${x.ajuste > 0 ? 'acelerarla' : 'frenarla'} ${(Math.abs(x.ajuste) * 100).toFixed(1).replace('.', ',')} %` + (Math.abs(x.ajuste) <= 0.06 ? ' ✔' : '');
+      info.textContent = [x.tb ? `🥁 ${x.c.bpm} bpm` : '🥁 sin medir', aj, x.c.tono ? `🎼 ${x.c.tono}` + (x.ok ? ' ✔' : '') : ''].filter(Boolean).join(' · ');
+      f.querySelector('.tx').append(info); f.querySelector('.ib').remove();
+      cont.append(f);
+    });
+  };
+  bt.onclick = () => { soloParecidas = !soloParecidas; pintar(); };
+  pintar();
+  abrirHoja('Cargar en el plato ' + LETRA_PLATO[k], o ? 'Para mezclar con "' + titulo(o) + '"' : '', [caja, cont]);
+}
+// Igualar solo: la canción que se carga toma la velocidad del otro plato y queda con SYNC (entra en el golpe al darle ▶)
+function pintarAuto(){ $('mxAuto').classList.toggle('on', mxAuto); $('mxAuto').textContent = mxAuto ? '🔗 Auto' : '🔗 Auto: no'; }
+$('mxAuto').onclick = () => { mxAuto = !mxAuto; try{ localStorage.setItem('reproductorJAT_mxAuto', mxAuto ? '1' : '0'); }catch(e){} guardarEstado(); pintarAuto();
+  toast(mxAuto ? '🔗 Cada canción que cargues tomará sola el tiempo del otro plato' : 'Igualar solo: apagado (usa SYNC)'); };
+async function autoIgualar(k, c){
+  if(!mxAuto) return;
+  const o = enPlato[1 - k]; if(!o) return;
+  const d = decks[k];
+  if(!d.paused && decks[1 - k].paused) return;            // si esta ya suena y la otra no, la otra es la que se iguala después
+  await Promise.all([prepararBordes(c), prepararBordes(o)]);
+  if(enPlato[k] !== c || !mixerAbierto || syncLock[k]) return;
+  const v = velocidadSync(k);
+  if(!v){ toast(`⚠ "${titulo(c)}" tiene un tiempo muy distinto: no se puede igualar sin que se note`, 4000); return; }
+  syncM[k] = v.m; velocidad(d, v.r); syncLock[k] = true; syncLock[1 - k] = false;
+  if(!d.paused) alinear(k);
+  pintarBotonesPlato(0); pintarBotonesPlato(1);
+  toast(`🔗 Plato ${LETRA_PLATO[k]} igualado solo: ${(60 / golpesDe(c).p * v.r).toFixed(1)} bpm. Dale ▶ y entra en el golpe.`, 4000);
 }
 // --- Abrir / cerrar ---
 let mxXfArr = false;
@@ -3152,7 +3222,7 @@ function abrirMixer(){
   const kP = decks.indexOf(audio), kO = 1 - kP;
   if(!enPlato[kP] && audio.src) enPlato[kP] = lista[actual];
   if(!enPlato[kO]){ const i = proxima && lista.includes(proxima.c) ? proxima.i : siguienteIndice(true); if(i >= 0 && lista[i] !== enPlato[kP]) cargarEnPlato(kO, i); }
-  [0, 1].forEach(pintarBotonesPlato);
+  [0, 1].forEach(pintarBotonesPlato); pintarAuto();
   $('mixer').classList.add('ver'); marcarHist();
   try{ AndroidJAT.colorBarra('#0e0f13', true); }catch(e){}
   requestAnimationFrame(cuadroMixer);
@@ -3309,7 +3379,7 @@ document.querySelectorAll('#temas button').forEach(b => b.onclick = () => ponerT
 /* ---------- Pantallas: menú de abajo, mini reproductor, hoja de opciones ---------- */
 let vistaAct = 'inicio', vistaPrev = 'inicio';
 const TITULOS = {inicio: 'Mi música', explorar: 'Explorar', favoritos: 'Canciones favoritas', buscar: 'Búsqueda', ajustes: 'Ajustes'};
-const NOMBRE_POR = {genero: 'Géneros', ritmo: 'Ritmo', dj: 'Mezcla DJ', artista: 'Artistas', album: 'Álbumes', anio: 'Años', carpeta: 'Carpetas'};
+const NOMBRE_POR = {genero: 'Géneros', ritmo: 'Ritmo', velocidad: 'Por velocidad', dj: 'Mezcla DJ', artista: 'Artistas', album: 'Álbumes', anio: 'Años', carpeta: 'Carpetas'};
 function pintarTitulo(){
   let t = TITULOS[vistaAct];
   if(vistaAct === 'inicio' && vista.por !== 'todas') t = vista.grupo !== null ? vista.grupo : (NOMBRE_POR[vista.por] || t);

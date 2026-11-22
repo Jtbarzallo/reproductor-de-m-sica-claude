@@ -5,6 +5,20 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 22 nov 2026 — Igualar tiempos y ver la velocidad (opciones A, B, C, D y E)
+**Pedido por Jorge:** igualar los tiempos de las canciones y mostrar la velocidad para elegir canciones de tiempo parecido. Eligió hacer todas las opciones.
+
+**Novedades**
+- **A · Velocidad a la vista:** cada canción muestra sus **bpm** y su **tono** junto al artista (ej. "Prueba · 🥁 120 bpm · 🎼 8A") en Inicio, Favoritos, Búsqueda y en el mixer.
+- **B · Medición automática:** al abrir la app mide sola, en segundo plano y de una en una, la **velocidad y el tono de toda la música** que falte. Se detiene mientras usas el mixer o mezclas, para no estorbar. El avance se ve en Explorar.
+- **C · Por velocidad:** nuevo grupo "**🥁 Velocidad**" (en Inicio y en Explorar → "Por velocidad"), con grupos de 10 en 10 bpm (ej. "120–129 bpm"), de la más lenta a la más rápida. Las canciones del mismo grupo se mezclan fácil.
+- **D · Elegir con tiempo parecido (🎯 del mixer):** por defecto muestra **solo las de tiempo parecido (±6 %)**. En cada una dice **cuánto hay que acelerarla o frenarla** (ej. "hay que frenarla 1,6 % ✔") y si el tono combina. Con un toque se ven todas.
+- **E · Igualar solo:** botón **🔗 Auto** en el mixer (prendido de fábrica). Cada canción que se carga en un plato **toma sola el tiempo del otro** y queda con SYNC: al darle ▶ entra justo en el golpe. Si el tiempo es muy distinto, avisa.
+
+**Respaldo (regla fija):** las velocidades y tonos medidos van en el respaldo (💾), igual que el ajuste "Igualar solo".
+
+---
+
 ## 22 nov 2026 — Mixer: mover las pistas a mano
 **Pedido por Jorge:** poder mover las pistas en el mixer.
 
