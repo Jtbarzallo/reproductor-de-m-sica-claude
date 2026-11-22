@@ -5,6 +5,20 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 22 nov 2026 — Letra a pantalla completa (estilo Deezer)
+**Pedido por Jorge:** que la letra se vea como en Deezer, con el color de la carátula o la carátula de fondo.
+
+**Novedades**
+- 🎤 **Letra** se abre ahora **a pantalla completa**: letras grandes, en negrita y centradas; arriba el título y el artista.
+- Las líneas **ya cantadas y la que suena quedan en blanco**; las que vienen salen más tenues. La letra sube sola y deja la línea actual cerca del centro. Tocar una línea salta a esa parte de la canción.
+- **Fondo del color de la carátula** (un tono más oscuro para que el blanco se lea bien). Con el botón **🖼** cambia a **la carátula difuminada de fondo**, y otra vez para volver al color.
+- **A− / A+** cambian el tamaño de la letra. El botón **⧉** cambia a la ventanita flotante de antes (y **⛶** vuelve a pantalla completa).
+- En la app, la barra de arriba del celular toma el mismo color, y el botón **atrás** cierra la letra.
+
+**Respaldo (regla fija):** el modo de la letra (pantalla completa o ventanita, fondo color o carátula, tamaño) va en el respaldo (💾).
+
+---
+
 ## 21 nov 2026 (noche) — Editar datos (TAG) y mejores carátulas
 **Pedido por Jorge:** mejorar las carátulas y poder cambiar el TAG (título, artista…) para encontrar la carátula verdadera. Ejemplo: "Track 04" de Enanitos Verdes, álbum "Enanitos Verdes (Variadas)", salía sin carátula.
 

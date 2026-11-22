@@ -167,6 +167,26 @@
   #flotTxt p{margin:0 0 10px;color:#8d8896;transition:color .2s,transform .2s}
   #flotTxt p.act{color:var(--acc);font-weight:700;transform:scale(1.03);transform-origin:left}
   #flotTxt.plano p{color:var(--txt)}
+  #flotTit small{margin-left:6px;opacity:.75;font-size:.9em}
+  #flot:not(.completa) #fCerrar{order:9}
+  #flotFondo{display:none}
+  /* ---- letra a pantalla completa (estilo Deezer): fondo del color de la carátula o la carátula difuminada ---- */
+  #flot.completa{left:0!important;top:0!important;width:100%;height:100%;border:0;border-radius:0;box-shadow:none;z-index:55;
+    background:var(--lf,#6a2bc2);color:#fff;backdrop-filter:none;transition:background-color .7s ease}
+  #flot.completa > *:not(#flotFondo){position:relative;z-index:1}
+  #flot.completa.conCar #flotFondo{display:block;position:absolute;inset:-60px;background-size:cover;background-position:center;
+    background-image:var(--lfImg);filter:blur(34px) brightness(.5) saturate(1.3);z-index:0}
+  #flot.completa #flotCab{border:0;cursor:default;color:#fff;padding:12px 10px;flex-wrap:wrap}
+  #flot.completa #flotCab button{background:transparent;color:#fff;font-size:17px;padding:8px 10px}
+  #flot.completa #fCerrar{font-size:26px!important}
+  #flot.completa #flotTit{text-align:center;white-space:normal;font-size:17px;line-height:1.3}
+  #flot.completa #flotTit b{display:block;font-weight:600}
+  #flot.completa #flotTit small{display:block;margin:2px 0 0;font-size:14px}
+  #flot.completa #flotTxt{text-align:center;padding:24vh 24px 0;font-weight:800;line-height:1.25}
+  #flot.completa #flotTxt p{color:rgba(255,255,255,.42);margin:0 0 .9em;transform:none!important}
+  #flot.completa #flotTxt p.pas,#flot.completa #flotTxt p.act,#flot.completa #flotTxt.plano p{color:#fff}
+  #flot.completa #flotTxt p.act{text-shadow:0 0 18px rgba(255,255,255,.25)}
+  #flot.completa #flotPie{border:0;color:rgba(255,255,255,.7);text-align:center;padding:8px 10px calc(10px + env(safe-area-inset-bottom))}
   #flotPie{font-size:11px;color:var(--mut);padding:4px 10px;border-top:1px solid #e3dcec}
   #mesa{display:none;margin-top:10px}
   #mesa.ver{display:block}
@@ -417,9 +437,11 @@
 <div id="hoja"><div class="asa"></div><div id="hojaTit"></div><div id="hojaOps"></div></div>
 <div id="toast"></div>
 
-<div id="flot">
-  <div id="flotCab"><span id="flotTit">Letra</span>
-    <button id="fMenos">A−</button><button id="fMas">A+</button><button id="fCerrar">✕</button></div>
+<div id="flot" class="completa">
+  <div id="flotFondo"></div>
+  <div id="flotCab"><button id="fCerrar" title="Cerrar">✕</button><span id="flotTit">Letra</span>
+    <button id="fMenos" title="Letra más chica">A−</button><button id="fMas" title="Letra más grande">A+</button>
+    <button id="fFondo" title="Fondo: color o carátula">🖼</button><button id="fModo" title="Pantalla completa o ventanita">⧉</button></div>
   <div id="flotTxt"></div>
   <div id="flotPie">Letras: lrclib.net</div>
 </div>
@@ -443,6 +465,7 @@ function ponerFuente(deck, blob, c = null){
 let lista = [];          // {id, nombre, blob?}
 let actual = -1, aleatorio = false, repetir = false;
 let respaldoPend = null; // respaldo cargado esperando canciones
+let letraModo = {completa: true, fondoCar: false, tamC: 30};   // letra: pantalla completa o ventanita, fondo de color o carátula
 
 /* ---------- Base de datos local (IndexedDB) ---------- */
 let db;
@@ -487,7 +510,7 @@ function estado(){
     etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm || c.caratula || c.tagManual).map(c => [c.nombre, {titulo:c.titulo||'', caratula:c.caratula||'', manual:c.tagManual?1:0, carM:c.carManual?1:0, artista:c.artista||'', album:c.album||'', anio:c.anio||'', genero:c.genero||'', bpm:c.bpm||0, pulso:c.pulso||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
     vista, favoritas: lista.filter(c => c.fav).map(c => c.nombre),
     clave: claveGuardada(), actual: lista[actual]?.nombre || null,
-    posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg, eq: eqVals, ocho: ochoSeg };
+    posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg, eq: eqVals, ocho: ochoSeg, letraModo };
 }
 const APP = !!window.AndroidJAT;   // dentro de la app Android
 let syncTimer = null;
@@ -513,6 +536,7 @@ function aplicarEstado(e, conPos, soloLista = false){
     if(e.estereo && PRESETS[e.estereo]) ponerEstereo(e.estereo, false);
     if(Array.isArray(e.eq) && e.eq.length === 5) ponerEQ(e.eq, false);
     if(typeof e.ocho === 'number') poner8D(e.ocho, false);
+    if(e.letraModo && typeof e.letraModo === 'object'){ Object.assign(letraModo, e.letraModo); try{ localStorage.setItem('reproductorJAT_letraModo', JSON.stringify(letraModo)); }catch(_){} aplicarModoLetra(); }
   }
   if(e.etiquetas) lista.forEach(c => {
     const t = e.etiquetas[c.nombre]; if(!t) return;
@@ -2102,24 +2126,42 @@ $('bRec').onclick = () => reconocerTodas();
 
 /* ---------- Letra flotante ---------- */
 let lineas = [], lineaAct = -1, tamLetra = 20;
+// Modo de la letra: pantalla completa (por defecto) o ventanita; fondo de color o con la carátula
 try{ tamLetra = +localStorage.getItem('reproductorJAT_tamLetra') || 20; }catch(e){}
+try{ Object.assign(letraModo, JSON.parse(localStorage.getItem('reproductorJAT_letraModo')) || {}); }catch(e){}
 const flot = $('flot'), flotTxt = $('flotTxt');
-flotTxt.style.fontSize = tamLetra + 'px';
+function aplicarModoLetra(){
+  flot.classList.toggle('completa', !!letraModo.completa);
+  flot.classList.toggle('conCar', !!letraModo.fondoCar);
+  flotTxt.style.fontSize = (letraModo.completa ? letraModo.tamC : tamLetra) + 'px';
+  $('fFondo').style.display = letraModo.completa ? '' : 'none';
+  $('fModo').textContent = letraModo.completa ? '⧉' : '⛶';
+  if(!letraModo.completa && flotAbierto()) acomodarFlot();
+  if(lineaAct >= 0) { const l = lineaAct; lineaAct = -2; marcarLinea(); }
+  barraApp();
+}
+function guardarModoLetra(){ try{ localStorage.setItem('reproductorJAT_letraModo', JSON.stringify(letraModo)); }catch(e){} guardarEstado(); aplicarModoLetra(); }
 function flotAbierto(){ return flot.classList.contains('ver'); }
+function cerrarLetra(){ flot.classList.remove('ver'); barraApp(); }
 $('bLetra').onclick = () => {
-  if(flotAbierto()){ flot.classList.remove('ver'); return; }
-  flot.classList.add('ver'); acomodarFlot(); cargarLetra();
+  if(flotAbierto()){ cerrarLetra(); return; }
+  flot.classList.add('ver'); aplicarModoLetra(); if(!letraModo.completa) acomodarFlot(); cargarLetra(); marcarHist();
 };
-$('fCerrar').onclick = () => flot.classList.remove('ver');
+$('fCerrar').onclick = cerrarLetra;
 $('fMas').onclick = () => cambiarTam(2);
 $('fMenos').onclick = () => cambiarTam(-2);
-function cambiarTam(d){ tamLetra = Math.max(14, Math.min(40, tamLetra + d)); flotTxt.style.fontSize = tamLetra + 'px'; try{ localStorage.setItem('reproductorJAT_tamLetra', tamLetra); }catch(e){} }
+$('fFondo').onclick = () => { letraModo.fondoCar = !letraModo.fondoCar; guardarModoLetra(); toast(letraModo.fondoCar ? '🖼 Fondo: la carátula' : '🎨 Fondo: el color de la carátula'); };
+$('fModo').onclick = () => { letraModo.completa = !letraModo.completa; guardarModoLetra(); };
+function cambiarTam(d){
+  if(letraModo.completa){ letraModo.tamC = Math.max(18, Math.min(48, letraModo.tamC + d)); guardarModoLetra(); return; }
+  tamLetra = Math.max(14, Math.min(40, tamLetra + d)); flotTxt.style.fontSize = tamLetra + 'px'; try{ localStorage.setItem('reproductorJAT_tamLetra', tamLetra); }catch(e){}
+}
 
 // Arrastrar la ventana
 (() => {
   let dx = 0, dy = 0, mov = false;
   $('flotCab').addEventListener('pointerdown', e => {
-    if(e.target.tagName === 'BUTTON') return;
+    if(e.target.tagName === 'BUTTON' || letraModo.completa) return;
     mov = true; const r = flot.getBoundingClientRect(); dx = e.clientX - r.left; dy = e.clientY - r.top;
     $('flotCab').setPointerCapture(e.pointerId);
   });
@@ -2134,6 +2176,7 @@ function cambiarTam(d){ tamLetra = Math.max(14, Math.min(40, tamLetra + d)); flo
   try{ const p = JSON.parse(localStorage.getItem('reproductorJAT_flot')); if(p){ flot.style.left = p.l; flot.style.top = p.t; } }catch(e){}
 })();
 function acomodarFlot(){
+  if(letraModo.completa) return;
   const r = flot.getBoundingClientRect();
   const l = Math.max(0, Math.min(innerWidth - r.width, r.left)), t = Math.max(0, Math.min(innerHeight - 60, r.top));
   flot.style.left = l + 'px'; flot.style.top = t + 'px';
@@ -2167,9 +2210,9 @@ function marcarLinea(){
   const t = audio.currentTime + 0.3;
   let i = -1; for(let k = 0; k < lineas.length; k++){ if(lineas[k].t <= t) i = k; else break; }
   if(i === lineaAct) return;
-  if(lineaAct >= 0 && lineas[lineaAct]) lineas[lineaAct].el.classList.remove('act');
   lineaAct = i;
-  if(i >= 0){ const el = lineas[i].el; el.classList.add('act'); flotTxt.scrollTop = el.offsetTop - flotTxt.clientHeight / 3; }
+  lineas.forEach((l, k) => { l.el.classList.toggle('act', k === i); l.el.classList.toggle('pas', k < i); });   // las ya cantadas quedan blancas
+  if(i >= 0){ const el = lineas[i].el; flotTxt.scrollTop = el.offsetTop - flotTxt.clientHeight * (letraModo.completa ? 0.4 : 1 / 3); }
 }
 enAudios('timeupdate', marcarLinea);
 enAudios('seeked', () => { lineaAct = -2; marcarLinea(); });
@@ -2250,7 +2293,9 @@ const VERSION_LETRA = 2;      // si mejora la búsqueda, las que antes "no se en
 let pidiendoPara = null;
 async function cargarLetra(){
   const c = lista[actual];
-  $('flotTit').textContent = c ? titulo(c) + (c.artista ? ' — ' + c.artista : '') : 'Letra';
+  const ft = $('flotTit'); ft.textContent = '';
+  const b1 = document.createElement('b'); b1.textContent = c ? titulo(c) : 'Letra'; ft.append(b1);
+  if(c && c.artista){ const s2 = document.createElement('small'); s2.textContent = c.artista; ft.append(s2); }
   if(!c){ textoFlot('No hay canción sonando.'); return; }
   if(c.letra || c.letraSync){ pintarLetra(c); return; }
   if(c.letraNo && c.letraV === VERSION_LETRA){ textoFlot('No se encontró la letra de esta canción.'); return; }
@@ -2598,7 +2643,8 @@ function colorDeImagen(src){
 let colorAct = null;   // {fondo, oscuro}
 async function ponerColorFondo(c, img){
   const P = $('pantalla').style;
-  const limpiar = () => { ['--fondo','--tinta','--tinta2','--suave','--btn','--onF','--onT','--rango'].forEach(v => P.removeProperty(v)); colorAct = null; barraApp(); };
+  const limpiar = () => { ['--fondo','--tinta','--tinta2','--suave','--btn','--onF','--onT','--rango'].forEach(v => P.removeProperty(v));
+    flot.style.removeProperty('--lf'); flot.style.removeProperty('--lfImg'); colorAct = null; barraApp(); };
   if(!c || !img){ limpiar(); return; }
   const clave = c.portada ? 'p:' + c.id + ':' + c.portada.size : img;
   let col = coloresCar.get(clave);
@@ -2620,14 +2666,21 @@ async function ponerColorFondo(c, img){
   P.setProperty('--onF', oscuro ? '#ffffff' : '#141218');
   P.setProperty('--onT', fondo);
   P.setProperty('--rango', oscuro ? '#ffffff' : '#141218');
-  colorAct = {fondo: '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join(''), oscuro};
+  const [r2, g2, b2] = hslArgb(col.h, col.s < 0.2 ? Math.min(col.s, 0.1) : Math.max(0.45, Math.min(0.75, col.s * 1.15)), col.s < 0.2 ? 0.28 : 0.4);
+  const letraCol = '#' + [r2, g2, b2].map(v => v.toString(16).padStart(2, '0')).join('');
+  flot.style.setProperty('--lf', letraCol); flot.style.setProperty('--lfImg', `url("${img}")`);
+  colorAct = {fondo: '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join(''), oscuro, letra: letraCol};
   barraApp();
 }
 // En la app: la barra de arriba del celular toma el mismo color mientras el reproductor está abierto
 function barraApp(){
   if(!APP) return;
   const abierto = $('pantalla').classList.contains('ver');
-  try{ AndroidJAT.colorBarra(abierto && colorAct ? colorAct.fondo : '#FDFBFF', abierto && colorAct ? colorAct.oscuro : false); }catch(e){}
+  const letra = flot.classList.contains('ver') && letraModo.completa;
+  let col = '#FDFBFF', osc = false;
+  if(letra){ col = letraModo.fondoCar && colorAct ? '#1c1b22' : (colorAct ? colorAct.letra : '#6a2bc2'); osc = true; }
+  else if(abierto && colorAct){ col = colorAct.fondo; osc = colorAct.oscuro; }
+  try{ AndroidJAT.colorBarra(col, osc); }catch(e){}
 }
 
 /* ---------- Pantallas: menú de abajo, mini reproductor, hoja de opciones ---------- */
@@ -2658,6 +2711,7 @@ document.querySelectorAll('#mosaico button').forEach(b => b.onclick = () => {
 // Botón "atrás" (flecha de arriba, botón del celular en la app y del navegador)
 function atras(){
   if($('hoja').classList.contains('ver')){ cerrarHoja(); return true; }
+  if(flotAbierto() && letraModo.completa){ cerrarLetra(); return true; }
   if($('pantalla').classList.contains('ver')){ cerrarPantalla(); return true; }
   if(vistaAct === 'ajustes'){ irVista(vistaPrev); return true; }
   if(vistaAct === 'inicio' && vista.por !== 'todas'){ vista = {por: 'todas', grupo: null}; pintarLista(); guardarEstado(); return true; }
@@ -2846,6 +2900,7 @@ $('bMezclar').onclick = () => {
   const e = leerEstado();
   if(e){ respaldoPend = e; aplicarEstado(e, true); }
   $('clave').value = claveGuardada();
+  aplicarModoLetra();
   pintarLista();
   if(APP) iniciarApp(); else await iniciarCarpeta();
   leerPendientes();

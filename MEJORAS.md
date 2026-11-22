@@ -22,12 +22,14 @@
 - [x] Carátula grande y fondo del color de la carátula (21 nov), también la barra de arriba del celular en la app
 - [x] Carátulas: el artista tiene que coincidir con el de la canción (no con el álbum); se revisan las de antes; "Cambiar carátula" para elegir entre varias, una imagen del celular o ninguna (21 nov)
 - [x] Editar datos (TAG) de cada canción, reconocer una sola por el sonido, carátula por álbum cuando el título es "Track 04", álbumes del artista en "Cambiar carátula" (21 nov); van en el respaldo
+- [x] Letra a pantalla completa estilo Deezer (22 nov): fondo del color de la carátula o la carátula difuminada, líneas cantadas en blanco; va en el respaldo
 
 ## Pendientes / ideas
 - [ ] Favoritas también en Android Auto (una pestaña "Favoritas" en el carro)
 - [ ] Deslizar hacia abajo para cerrar el reproductor completo
 - [ ] Pasar de canción deslizando la carátula a los lados (como Deezer)
 - [ ] Guardar también los datos editados dentro del archivo de música (escribir el TAG en el MP3)
+- [ ] Letra: botón "Con traducción" (traducir la letra al español/inglés)
 - [ ] Cola "Reproducir a continuación" desde el ⋮ de cada canción
 - [ ] Entrar en el inicio de un compás/frase (no solo en un golpe)
 - [ ] Mezclar también canciones de velocidades muy distintas con un efecto de transición (eco/filtro)
