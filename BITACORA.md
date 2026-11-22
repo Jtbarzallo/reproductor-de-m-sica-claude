@@ -5,6 +5,20 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 22 nov 2026 — Android Auto: volver a poder escoger música
+**Problema que vio Jorge:** Android Auto ya funcionaba, pero no dejaba escoger música.
+
+**Causa probable:** desde el cambio anterior la app tenía **dos sesiones multimedia**: la nueva de la pantalla principal (para el centro de control), que **no tiene lista de música**, y la del carro, que sí la tiene. Android Auto se quedaba con la primera, que solo trae ⏯ ⏮ ⏭.
+
+**Arreglo**
+- Al conectar Android Auto, la sesión de la pantalla principal **se apaga**. Así el carro usa la sesión que sí tiene la lista de música (Todas, Géneros, Ritmo, Más…).
+- Cuando suena música desde el carro, también se apaga la de la pantalla principal.
+- Al desconectar el carro, todo vuelve a como estaba: la música del celular sigue saliendo en el centro de control.
+
+**Respaldo:** no guarda datos nuevos.
+
+---
+
 ## 22 nov 2026 — Páginas de artista y álbum (estilo Deezer)
 **Pedido por Jorge:** que al ver por artista o por álbum aparezca como en Deezer (foto grande, título grande, lista numerada).
 

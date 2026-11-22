@@ -195,7 +195,10 @@ class PlaybackService : MediaLibraryService() {
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (!isPlaying) guardarPosicion()
-                else MainActivity.orden("pausa")   // si suena en el carro, se calla la pantalla principal
+                else {
+                    MainActivity.orden("pausa")   // si suena en el carro, se calla la pantalla principal
+                    WebService.detener(this@PlaybackService)   // y se quita su sesión, para que el carro use esta (con la lista de música)
+                }
             }
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) { actualizarBotones() }
             override fun onRepeatModeChanged(repeatMode: Int) { actualizarBotones() }
@@ -271,13 +274,26 @@ class PlaybackService : MediaLibraryService() {
         override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
             // Al conectar el carro: si la música está sonando en el celular, sigue en Android Auto
             // con la misma canción y en el mismo punto.
-            if (controller.packageName.contains("gearhead") && WebService.estaSonando()) main.post { pasarAlCarro() }
+            if (esCarro(controller)) {
+                WebService.enCarro = true
+                val sonaba = WebService.estaSonando()
+                main.post {
+                    if (sonaba) pasarAlCarro()
+                    // la sesión de la pantalla principal no tiene lista de música: se apaga para que Android Auto
+                    // muestre la de este servicio (donde sí se puede escoger música)
+                    WebService.detener(this@PlaybackService)
+                }
+            }
             val comandos = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
                 .add(CMD_ALEATORIO).add(CMD_REPETIR).build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(comandos)
                 .setCustomLayout(botones())
                 .build()
+        }
+
+        override fun onDisconnected(session: MediaSession, controller: MediaSession.ControllerInfo) {
+            if (esCarro(controller)) WebService.enCarro = false
         }
 
         override fun onCustomCommand(
@@ -389,6 +405,9 @@ class PlaybackService : MediaLibraryService() {
             )
         }
     }
+
+    private fun esCarro(c: MediaSession.ControllerInfo) =
+        c.packageName.contains("gearhead") || c.packageName.contains("android.car") || c.packageName.contains("automotive")
 
     private var ultimoPase = 0L
     private fun pasarAlCarro() {

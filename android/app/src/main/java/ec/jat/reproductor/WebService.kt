@@ -48,6 +48,9 @@ class WebService : Service() {
 
         fun estaSonando() = sonando
 
+        /** true mientras Android Auto está conectado: ahí manda la sesión del carro (con lista de música). */
+        @Volatile var enCarro = false
+
         fun crearCanal(ctx: Context) {
             if (Build.VERSION.SDK_INT >= 26) {
                 val nm = ctx.getSystemService(NotificationManager::class.java)
@@ -80,6 +83,7 @@ class WebService : Service() {
         }
 
         private fun refrescar(ctx: Context) {
+            if (enCarro && !sonando) { detener(ctx); return }
             val v = vivo
             if (v != null) { v.mostrar(); return }
             if (sonando) {
@@ -115,6 +119,7 @@ class WebService : Service() {
         }
 
         fun detener(ctx: Context) {
+            try { vivo?.apagarSesion() } catch (e: Exception) {}
             try { ctx.stopService(Intent(ctx, WebService::class.java)) } catch (e: Exception) {}
         }
     }
@@ -156,6 +161,8 @@ class WebService : Service() {
         mostrar()
         return START_NOT_STICKY
     }
+
+    fun apagarSesion() { try { sesion?.isActive = false } catch (e: Exception) {} }
 
     override fun onDestroy() {
         try { sesion?.isActive = false; sesion?.release() } catch (e: Exception) {}
