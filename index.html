@@ -116,6 +116,9 @@
   .ctrl #bAleat svg.i,.ctrl #bRep svg.i{width:26px;height:26px}
   .ctrl .big{width:78px;height:78px;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center}
   .ctrl .big svg.i{width:42px;height:42px}
+  .sonandoEn{display:none;margin:10px auto 0;width:max-content;max-width:100%;padding:6px 14px;border-radius:16px;font-size:15px;cursor:pointer;
+    background:var(--btn,var(--sel));color:var(--tinta,var(--txt));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sonandoEn.ver{display:block}
   .vol{display:flex;align-items:center;gap:10px;color:var(--mut)}
   .sec{margin-top:14px;font-size:15px;color:var(--mut);font-weight:600}
 
@@ -227,6 +230,7 @@
   <symbol id="i-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></symbol>
   <symbol id="i-note" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></symbol>
+  <symbol id="i-cast" viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v3h2V5h18v14h-7v2h7c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm0-4v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11z"/></symbol>
   <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></symbol>
 </svg>
 
@@ -351,6 +355,7 @@
   <header class="top">
     <button class="ib" id="bCerrarP" title="Cerrar"><svg class="i"><use href="#i-down"/></svg></button>
     <h1>Reproduciendo</h1>
+    <button class="ib" id="bSalida" title="Transmitir a otro aparato (Bluetooth)"><svg class="i"><use href="#i-cast"/></svg></button>
     <button class="ib" id="bFavP" title="Favorita"><svg class="i"><use href="#i-heart-o"/></svg></button>
     <button class="ib" id="bMenuP" title="Más opciones"><svg class="i"><use href="#i-more"/></svg></button>
   </header>
@@ -360,6 +365,7 @@
     <div id="sub">Agrega canciones para empezar</div>
     <input id="barra" type="range" min="0" max="0" step="0.1" value="0">
     <div class="tiempos"><span id="tAct">0:00</span><span id="tTot">0:00</span></div>
+    <div id="sonandoEn" class="sonandoEn"></div>
     <div class="ctrl">
       <button id="bAleat" title="Aleatorio"><svg class="i"><use href="#i-shuffle"/></svg></button>
       <button id="bAnt" title="Anterior"><svg class="i"><use href="#i-prev"/></svg></button>
@@ -2704,6 +2710,48 @@ function barraApp(){
   try{ AndroidJAT.colorBarra(col, osc); }catch(e){}
 }
 
+/* ---------- Transmitir: elegir dónde suena (celular, parlante o audífonos Bluetooth) ---------- */
+function salidaActual(){
+  if(!APP) return null;
+  try{ return JSON.parse(AndroidJAT.salidaAudio()); }catch(e){ return null; }
+}
+function pintarSalida(){
+  const s = salidaActual(), d = $('sonandoEn');
+  if(!s){ d.classList.remove('ver'); return; }
+  d.textContent = (s.tipo === 'bluetooth' ? '🔵 Sonando en: ' : s.tipo === 'audifonos' ? '🎧 Sonando en: ' : '📱 Sonando en: ') + s.nombre;
+  d.classList.add('ver');
+  $('bSalida').style.color = s.tipo === 'bluetooth' ? 'var(--onF, var(--acc))' : '';
+}
+function menuSalida(){
+  if(APP){
+    const s = salidaActual();
+    abrirHoja('Transmitir a otro aparato', s ? 'Ahora suena en: ' + s.nombre : '', [
+      {t: '🔊  Elegir dónde suena (celular o Bluetooth)', f: () => { try{ AndroidJAT.elegirSalida(); }catch(e){} }},
+      {t: '🔵  Conectar otro aparato Bluetooth', f: () => { try{ AndroidJAT.ajustesBluetooth(); }catch(e){} }},
+    ]);
+    return;
+  }
+  // en la web
+  const ops = [];
+  if(audio.remote && audio.remote.prompt) ops.push({t: '📺  Transmitir (Chromecast u otro)', f: () => audio.remote.prompt().catch(() => toast('No encontré aparatos para transmitir'))});
+  if(navigator.mediaDevices && navigator.mediaDevices.selectAudioOutput) ops.push({t: '🔊  Elegir parlante o audífonos', f: async () => {
+    try{
+      const d = await navigator.mediaDevices.selectAudioOutput();
+      if(ctxBase && ctxBase.setSinkId) await ctxBase.setSinkId(d.deviceId);
+      for(const a of decks) if(a.setSinkId) await a.setSinkId(d.deviceId);
+      toast('🔊 Sonando en: ' + d.label);
+    }catch(e){}
+  }});
+  if(!ops.length) return toast('Conecta el parlante o audífonos Bluetooth desde los ajustes del celular: la música sale por ahí sola.', 5000);
+  abrirHoja('Transmitir a otro aparato', '', ops);
+}
+$('bSalida').onclick = menuSalida;
+$('sonandoEn').onclick = menuSalida;
+if(APP){
+  setInterval(() => { if($('pantalla').classList.contains('ver') && !document.hidden) pintarSalida(); }, 4000);
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) pintarSalida(); });
+}
+
 /* ---------- Color de la app (azul marino o rojo) ---------- */
 const TEMAS = {
   azul: {acc: '#1e3a8a', acc2: '#dce4f4', g1: '#4f6fb3', g2: '#14224a', lfDef: '#18295a', sombra: 'rgba(30,58,138,.35)'},
@@ -2760,7 +2808,7 @@ addEventListener('popstate', () => { if(!APP) atras(); });
 $('bAtras').onclick = atras;
 
 // Reproductor a pantalla completa
-function abrirPantalla(){ if(actual < 0) return; $('pantalla').classList.add('ver'); marcarHist(); barraApp(); }
+function abrirPantalla(){ if(actual < 0) return; $('pantalla').classList.add('ver'); marcarHist(); barraApp(); pintarSalida(); }
 function cerrarPantalla(){ $('pantalla').classList.remove('ver'); barraApp(); }
 $('miniTx').onclick = abrirPantalla;
 $('bCerrarP').onclick = cerrarPantalla;
@@ -2837,6 +2885,7 @@ $('bMenu').onclick = () => abrirHoja('Más opciones', '', [
   {t: APP ? '🔄  Buscar canciones nuevas' : '📁  Elegir carpeta de música', f: () => $('bCarpeta').click()},
   {t: '🖼  Buscar carátulas que faltan', f: () => buscarCaratulas(true)},
   {t: '🏷  Clasificar música (género y ritmo)', f: () => { irVista('explorar'); $('bClasificar').click(); }},
+  {t: '📡  Transmitir a otro aparato (Bluetooth)', f: menuSalida},
   {t: '🎧  Sonido, ecualizador y modo DJ', f: () => { if(actual < 0) return toast('Primero elige una canción'); abrirPantalla(); }},
   {t: '💾  Guardar respaldo', f: () => $('bResp').click()},
   {t: '⚙  Ajustes y respaldo', f: () => irVista('ajustes')},

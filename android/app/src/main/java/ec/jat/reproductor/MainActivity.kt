@@ -7,6 +7,9 @@ import android.content.ContentUris
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
+import android.media.MediaRouter2
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -14,6 +17,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
@@ -302,5 +306,58 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun abrirAjustes() { main.post { startActivity(Intent(this@MainActivity, AjustesActivity::class.java)) } }
+
+        /** Dónde está sonando ahora: parlante Bluetooth, audífonos o el celular. */
+        @JavascriptInterface
+        fun salidaAudio(): String {
+            val am = getSystemService(AUDIO_SERVICE) as AudioManager
+            val devs = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            fun nombre(d: AudioDeviceInfo) = d.productName?.toString()?.takeIf { it.isNotBlank() && it != Build.MODEL } ?: ""
+            val bt = devs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP }
+            val o = JSONObject()
+            when {
+                bt != null -> { o.put("tipo", "bluetooth"); o.put("nombre", nombre(bt).ifEmpty { "Bluetooth" }) }
+                devs.any { it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES || it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET || it.type == AudioDeviceInfo.TYPE_USB_HEADSET } ->
+                    { o.put("tipo", "audifonos"); o.put("nombre", "Audífonos con cable") }
+                else -> { o.put("tipo", "celular"); o.put("nombre", "Este celular") }
+            }
+            return o.toString()
+        }
+
+        /** Abre la ventanita del sistema para elegir dónde suena (celular, parlante o audífonos Bluetooth…). */
+        @JavascriptInterface
+        fun elegirSalida() { main.post { abrirSelectorSalida() } }
+
+        /** Abre los ajustes de Bluetooth del celular para emparejar o conectar otro aparato. */
+        @JavascriptInterface
+        fun ajustesBluetooth() {
+            main.post {
+                try { startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }
+                catch (e: Exception) { Toast.makeText(this@MainActivity, "No se pudo abrir el Bluetooth", Toast.LENGTH_SHORT).show() }
+            }
+        }
+    }
+
+    // Selector de salida de audio: se prueba lo que tenga cada versión de Android (y de MIUI);
+    // si nada funciona, se abren los ajustes de Bluetooth.
+    private fun abrirSelectorSalida() {
+        if (Build.VERSION.SDK_INT >= 34) {
+            try { if (MediaRouter2.getInstance(this).showSystemOutputSwitcher()) return } catch (e: Exception) {}
+        }
+        val panel = Intent("com.android.settings.panel.action.MEDIA_OUTPUT")
+            .putExtra("com.android.settings.panel.extra.PACKAGE_NAME", packageName)
+        if (Build.VERSION.SDK_INT <= 30) {
+            try { if (panel.resolveActivity(packageManager) != null) { startActivity(panel); return } } catch (e: Exception) {}
+        }
+        if (Build.VERSION.SDK_INT >= 31) {
+            try {
+                val i = Intent("com.android.systemui.action.LAUNCH_MEDIA_OUTPUT_DIALOG")
+                    .setPackage("com.android.systemui").putExtra("package_name", packageName)
+                if (packageManager.queryBroadcastReceivers(i, 0).isNotEmpty()) { sendBroadcast(i); return }
+            } catch (e: Exception) {}
+            try { if (panel.resolveActivity(packageManager) != null) { startActivity(panel); return } } catch (e: Exception) {}
+        }
+        try { startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }
+        catch (e: Exception) { Toast.makeText(this, "No se pudo abrir el selector de sonido", Toast.LENGTH_SHORT).show() }
     }
 }

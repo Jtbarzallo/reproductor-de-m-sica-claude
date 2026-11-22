@@ -5,6 +5,20 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 22 nov 2026 — Transmitir a otro aparato (Bluetooth)
+**Pedido por Jorge:** poder mandar la música a otro aparato Bluetooth, como el botón de transmitir de Deezer.
+
+**Novedades**
+- En "Reproduciendo", arriba, el botón **📡 transmitir** (también en ⋮ → "Transmitir a otro aparato").
+  - **🔊 Elegir dónde suena:** abre la ventanita del propio Android para pasar la música al celular, a un parlante o a unos audífonos Bluetooth. Si el celular no tiene esa ventanita, abre los ajustes de Bluetooth.
+  - **🔵 Conectar otro aparato Bluetooth:** abre los ajustes de Bluetooth para emparejar uno nuevo.
+- Debajo de la barra de tiempo se ve **dónde está sonando** ("🔵 Sonando en: JBL Flip 5", "📱 Este celular", "🎧 Audífonos con cable"). Se actualiza solo; tocarlo abre el mismo menú.
+- En la web: Chromecast si el navegador lo permite, o elegir parlante en computadoras.
+
+**Respaldo:** no guarda datos nuevos (el aparato lo recuerda Android).
+
+---
+
 ## 22 nov 2026 — Abrir canciones desde otras apps
 **Pedido de Jorge:** al tocar una canción en Archivos JAT, en "Abrir con" no salía el Reproductor JAT.
 
