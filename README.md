@@ -5,6 +5,7 @@ Reproductor de música sencillo en una sola página HTML.
 📒 Cambios y novedades: [BITACORA.md](BITACORA.md) · Lista de mejoras: [MEJORAS.md](MEJORAS.md)
 
 - Pantalla estilo app de música: menú de abajo (Inicio, Explorar, Favoritos, Búsqueda), lista con portadas, mini reproductor oscuro abajo y reproductor a pantalla completa
+- Colores: azul marino o rojo (Ajustes → Color de la app)
 - Favoritas con ❤ y búsqueda por título, artista, álbum o género
 - Carátulas automáticas: las canciones sin portada la buscan solas en internet (iTunes, Deezer, MusicBrainz); también salen en Android Auto
 

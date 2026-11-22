@@ -23,6 +23,7 @@
 - [x] Carátulas: el artista tiene que coincidir con el de la canción (no con el álbum); se revisan las de antes; "Cambiar carátula" para elegir entre varias, una imagen del celular o ninguna (21 nov)
 - [x] Editar datos (TAG) de cada canción, reconocer una sola por el sonido, carátula por álbum cuando el título es "Track 04", álbumes del artista en "Cambiar carátula" (21 nov); van en el respaldo
 - [x] Letra a pantalla completa estilo Deezer (22 nov): fondo del color de la carátula o la carátula difuminada, líneas cantadas en blanco; va en el respaldo
+- [x] Sin morado (22 nov): interfaz en azul marino, con opción de rojo en Ajustes → Color de la app; va en el respaldo
 
 ## Pendientes / ideas
 - [ ] Favoritas también en Android Auto (una pestaña "Favoritas" en el carro)

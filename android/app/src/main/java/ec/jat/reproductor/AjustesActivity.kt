@@ -32,9 +32,12 @@ import java.util.concurrent.Executors
 
 class AjustesActivity : Activity() {
 
-    private val FONDO = Color.parseColor("#FDFBFF")
-    private val TARJETA = Color.parseColor("#F1ECF6")
-    private val ACENTO = Color.parseColor("#9B3DF4")
+    private val FONDO = Color.parseColor("#FBFBFC")
+    private val TARJETA = Color.parseColor("#F1F2F5")
+    private val ACENTO by lazy {
+        try { Color.parseColor(getSharedPreferences("reproductor", MODE_PRIVATE).getString("colorTema", null) ?: "#1E3A8A") }
+        catch (e: Exception) { Color.parseColor("#1E3A8A") }
+    }
     private val TEXTO = Color.parseColor("#1D1B20")
     private val GRIS = Color.parseColor("#6E6A75")
 
@@ -299,7 +302,7 @@ class AjustesActivity : Activity() {
         text = t; isAllCaps = false; textSize = 15f
         setTextColor(if (secundario) TEXTO else Color.WHITE)
         background = GradientDrawable().apply {
-            setColor(if (secundario) Color.parseColor("#E6DFEE") else ACENTO); cornerRadius = dp(12).toFloat()
+            setColor(if (secundario) Color.parseColor("#E6E8ED") else ACENTO); cornerRadius = dp(12).toFloat()
         }
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(52)).apply { topMargin = dp(10) }
         setOnClickListener { accion() }

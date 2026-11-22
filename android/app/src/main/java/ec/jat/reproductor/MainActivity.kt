@@ -53,8 +53,8 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         actual = WeakReference(this)
-        window.statusBarColor = Color.parseColor("#FDFBFF")
-        window.navigationBarColor = Color.parseColor("#F3F1F6")
+        window.statusBarColor = Color.parseColor("#FBFBFC")
+        window.navigationBarColor = Color.parseColor("#F2F3F6")
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         WebService.crearCanal(this)
@@ -65,7 +65,7 @@ class MainActivity : Activity() {
             .build()
 
         web = WebView(this)
-        web.setBackgroundColor(Color.parseColor("#FDFBFF"))
+        web.setBackgroundColor(Color.parseColor("#FBFBFC"))
         web.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -213,6 +213,12 @@ class MainActivity : Activity() {
                 if (sonando) PlaybackService.pausarSiSuena()   // que no suenen los dos motores a la vez
                 WebService.actualizar(this@MainActivity, titulo, artista, sonando)
             }
+        }
+
+        /** Color de la app elegido (azul marino o rojo): lo usa también la pantalla de Ajustes de Android Auto. */
+        @JavascriptInterface
+        fun ponerTema(color: String) {
+            getSharedPreferences("reproductor", MODE_PRIVATE).edit().putString("colorTema", color).apply()
         }
 
         /** Color de la barra de arriba del celular (el del fondo del reproductor). */

@@ -5,6 +5,19 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 22 nov 2026 — Adiós al morado: azul marino o rojo
+**Pedido por Jorge:** cambiar todo lo morado de la interfaz por azul marino o rojo.
+
+**Novedades**
+- Todo lo que era morado ahora es **azul marino** (botón redondo de aleatorio, canción que suena, botón ▶, barras, botones activos, menú de abajo, ❤, cuadro sin carátula, fondo de la letra sin carátula, mosaico "Géneros", pantalla de Ajustes de Android Auto).
+- Los grises claros que tenían un toque lila ahora son grises neutros.
+- **⋮ → Ajustes → "🎨 Color de la app"**: elegir **🔵 Azul marino** o **🔴 Rojo**. Cambia al instante.
+- El fondo con el color de la carátula (reproductor y letra) sigue igual.
+
+**Respaldo (regla fija):** el color elegido va en el respaldo (💾).
+
+---
+
 ## 22 nov 2026 — Letra a pantalla completa (estilo Deezer)
 **Pedido por Jorge:** que la letra se vea como en Deezer, con el color de la carátula o la carátula de fondo.
 

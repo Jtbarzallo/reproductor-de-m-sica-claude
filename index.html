@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Reproductor de Música JAT</title>
 <style>
-  :root{--bg:#fdfbff;--card:#f3eff8;--acc:#9b3df4;--acc2:#eedffd;--txt:#1d1b20;--mut:#6e6a75;--sel:#e9e3f0;--linea:#e6e1ec;--osc:#1c1b22}
+  :root{--bg:#fbfbfc;--card:#f1f2f5;--acc:#1e3a8a;--acc2:#dce4f4;--g1:#4f6fb3;--g2:#14224a;--lfDef:#18295a;--sombra:rgba(30,58,138,.35);--txt:#1b1c20;--mut:#6b6f78;--sel:#e6e8ed;--linea:#e3e5ea;--osc:#1b1c22}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   body{margin:0;font-family:Roboto,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--txt);font-size:18px}
   svg.i{width:26px;height:26px;fill:currentColor;display:block;flex:0 0 auto}
@@ -32,7 +32,7 @@
   .top h1{flex:1;font-size:21px;margin:0 0 0 10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ib{background:transparent;color:var(--txt);border:0;padding:10px;border-radius:50%;display:flex;align-items:center;justify-content:center}
   .ib:active{background:var(--sel)}
-  .fab{width:58px;height:58px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;padding:0;margin-left:6px;box-shadow:0 3px 10px rgba(155,61,244,.35)}
+  .fab{width:58px;height:58px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;padding:0;margin-left:6px;box-shadow:0 3px 10px var(--sombra)}
   .fab svg.i{width:30px;height:30px}
   #bAtras{display:none}
   body.subvista #bAtras{display:flex}
@@ -81,7 +81,7 @@
   #miniProg{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--acc)}
 
   /* ---- menú de abajo ---- */
-  #nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:#f3f1f6;border-top:1px solid var(--linea);padding:10px 0 calc(10px + env(safe-area-inset-bottom))}
+  #nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:#f2f3f6;border-top:1px solid var(--linea);padding:10px 0 calc(10px + env(safe-area-inset-bottom))}
   #nav button{flex:1;background:transparent;border:0;border-radius:0;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:5px;font-size:15px;padding:0}
   #nav .pil{width:70px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center}
   #nav button.on{color:var(--txt)!important;background:transparent!important}
@@ -102,7 +102,7 @@
   #pantalla .on{background:var(--onF)!important;color:var(--onT)!important}
   #pantalla input[type=range]{accent-color:var(--rango)}
   #pantalla .wrap{padding-top:4px}
-  .disco{width:min(88vw,520px);height:min(88vw,520px);margin:14px auto 22px;border-radius:8px;background:linear-gradient(135deg,#c79bff,#7b2fd6);
+  .disco{width:min(88vw,520px);height:min(88vw,520px);margin:14px auto 22px;border-radius:8px;background:linear-gradient(135deg,var(--g1),var(--g2));
     display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.85);box-shadow:0 10px 30px rgba(0,0,0,.28)}
   .disco svg.i{width:38%;height:38%}
   .disco.portada{background-size:cover;background-position:center}
@@ -172,7 +172,7 @@
   #flotFondo{display:none}
   /* ---- letra a pantalla completa (estilo Deezer): fondo del color de la carátula o la carátula difuminada ---- */
   #flot.completa{left:0!important;top:0!important;width:100%;height:100%;border:0;border-radius:0;box-shadow:none;z-index:55;
-    background:var(--lf,#6a2bc2);color:#fff;backdrop-filter:none;transition:background-color .7s ease}
+    background:var(--lf,var(--lfDef));color:#fff;backdrop-filter:none;transition:background-color .7s ease}
   #flot.completa > *:not(#flotFondo){position:relative;z-index:1}
   #flot.completa.conCar #flotFondo{display:block;position:absolute;inset:-60px;background-size:cover;background-position:center;
     background-image:var(--lfImg);filter:blur(34px) brightness(.5) saturate(1.3);z-index:0}
@@ -255,7 +255,7 @@
 <!-- ===== Explorar ===== -->
 <section class="vista" id="v-explorar">
   <div class="mosaico" id="mosaico">
-    <button data-p="genero" style="background:#7b2fd6">Géneros<small>Salsa, pop, rock…</small></button>
+    <button data-p="genero" style="background:#14224a">Géneros<small>Salsa, pop, rock…</small></button>
     <button data-p="ritmo" style="background:#e2553a">Ritmo<small>Lento · moderado · rápido</small></button>
     <button data-p="dj" style="background:#1f8f6a">Mezcla DJ<small>Canciones que se mezclan</small></button>
     <button data-p="artista" style="background:#2f7de1">Artistas</button>
@@ -294,6 +294,11 @@
     </div>
     <input id="archivos" type="file" accept="audio/*" multiple>
     <input id="dirInput" type="file" webkitdirectory multiple>
+  </div>
+
+  <div class="card">
+    <h3>🎨 Color de la app</h3>
+    <div class="fila" id="temas"><button data-t="azul">🔵 Azul marino</button><button data-t="rojo">🔴 Rojo</button></div>
   </div>
 
   <div class="card" id="cardApp" style="display:none">
@@ -465,7 +470,9 @@ function ponerFuente(deck, blob, c = null){
 let lista = [];          // {id, nombre, blob?}
 let actual = -1, aleatorio = false, repetir = false;
 let respaldoPend = null; // respaldo cargado esperando canciones
-let letraModo = {completa: true, fondoCar: false, tamC: 30};   // letra: pantalla completa o ventanita, fondo de color o carátula
+let letraModo = {completa: true, fondoCar: false, tamC: 30};
+let tema = 'azul';   // color de la app: 'azul' (azul marino) o 'rojo'
+try{ const t = localStorage.getItem('reproductorJAT_tema'); if(t === 'azul' || t === 'rojo') tema = t; }catch(e){}   // letra: pantalla completa o ventanita, fondo de color o carátula
 
 /* ---------- Base de datos local (IndexedDB) ---------- */
 let db;
@@ -510,7 +517,7 @@ function estado(){
     etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm || c.caratula || c.tagManual).map(c => [c.nombre, {titulo:c.titulo||'', caratula:c.caratula||'', manual:c.tagManual?1:0, carM:c.carManual?1:0, artista:c.artista||'', album:c.album||'', anio:c.anio||'', genero:c.genero||'', bpm:c.bpm||0, pulso:c.pulso||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
     vista, favoritas: lista.filter(c => c.fav).map(c => c.nombre),
     clave: claveGuardada(), actual: lista[actual]?.nombre || null,
-    posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg, eq: eqVals, ocho: ochoSeg, letraModo };
+    posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg, eq: eqVals, ocho: ochoSeg, letraModo, tema };
 }
 const APP = !!window.AndroidJAT;   // dentro de la app Android
 let syncTimer = null;
@@ -536,6 +543,7 @@ function aplicarEstado(e, conPos, soloLista = false){
     if(e.estereo && PRESETS[e.estereo]) ponerEstereo(e.estereo, false);
     if(Array.isArray(e.eq) && e.eq.length === 5) ponerEQ(e.eq, false);
     if(typeof e.ocho === 'number') poner8D(e.ocho, false);
+    if(e.tema && TEMAS[e.tema]){ try{ localStorage.setItem('reproductorJAT_tema', e.tema); }catch(_){} ponerTema(e.tema, false); }
     if(e.letraModo && typeof e.letraModo === 'object'){ Object.assign(letraModo, e.letraModo); try{ localStorage.setItem('reproductorJAT_letraModo', JSON.stringify(letraModo)); }catch(_){} aplicarModoLetra(); }
   }
   if(e.etiquetas) lista.forEach(c => {
@@ -2677,11 +2685,27 @@ function barraApp(){
   if(!APP) return;
   const abierto = $('pantalla').classList.contains('ver');
   const letra = flot.classList.contains('ver') && letraModo.completa;
-  let col = '#FDFBFF', osc = false;
-  if(letra){ col = letraModo.fondoCar && colorAct ? '#1c1b22' : (colorAct ? colorAct.letra : '#6a2bc2'); osc = true; }
+  let col = '#FBFBFC', osc = false;
+  if(letra){ col = letraModo.fondoCar && colorAct ? '#1c1b22' : (colorAct ? colorAct.letra : getComputedStyle(document.documentElement).getPropertyValue('--lfDef').trim()); osc = true; }
   else if(abierto && colorAct){ col = colorAct.fondo; osc = colorAct.oscuro; }
   try{ AndroidJAT.colorBarra(col, osc); }catch(e){}
 }
+
+/* ---------- Color de la app (azul marino o rojo) ---------- */
+const TEMAS = {
+  azul: {acc: '#1e3a8a', acc2: '#dce4f4', g1: '#4f6fb3', g2: '#14224a', lfDef: '#18295a', sombra: 'rgba(30,58,138,.35)'},
+  rojo: {acc: '#c62828', acc2: '#f9dcdc', g1: '#ef6b6b', g2: '#7f1515', lfDef: '#8e1b1b', sombra: 'rgba(198,40,40,.35)'},
+};
+function ponerTema(t, guardar = true){
+  if(!TEMAS[t]) t = 'azul';
+  tema = t;
+  const r = document.documentElement.style;
+  Object.entries(TEMAS[t]).forEach(([k, v]) => r.setProperty('--' + k, v));
+  document.querySelectorAll('#temas button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  if(APP) try{ AndroidJAT.ponerTema(TEMAS[t].acc); }catch(e){}
+  if(guardar){ try{ localStorage.setItem('reproductorJAT_tema', t); }catch(e){} guardarEstado(); }
+}
+document.querySelectorAll('#temas button').forEach(b => b.onclick = () => ponerTema(b.dataset.t));
 
 /* ---------- Pantallas: menú de abajo, mini reproductor, hoja de opciones ---------- */
 let vistaAct = 'inicio', vistaPrev = 'inicio';
@@ -2900,7 +2924,7 @@ $('bMezclar').onclick = () => {
   const e = leerEstado();
   if(e){ respaldoPend = e; aplicarEstado(e, true); }
   $('clave').value = claveGuardada();
-  aplicarModoLetra();
+  aplicarModoLetra(); ponerTema(tema, false);
   pintarLista();
   if(APP) iniciarApp(); else await iniciarCarpeta();
   leerPendientes();
