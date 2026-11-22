@@ -143,6 +143,24 @@
   .mxTiempo{font-size:14px;color:#c9cbd3}
   #mxEnEspera{font-size:12px;color:#9aa0ad}
   .mxOnda{width:100%;height:24vh;min-height:130px;display:block;touch-action:none;background:#15171d}
+  .mxLetra{font-weight:900;font-size:18px;width:26px;text-align:center}
+  .mxA,#mixer .mxA{color:#58a6ff!important} .mxB,#mixer .mxB{color:#f78166!important}
+  .mxBotones{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px}
+  .mxBotones button{font-size:15px;padding:10px 12px;border-radius:12px;font-weight:700}
+  #mixer .mxBotones .mxBig{width:52px;height:52px;border-radius:50%;background:#fff;color:#0e0f13;display:flex;align-items:center;justify-content:center;padding:0}
+  #mixer .mxBotones .mxBig svg.i{width:30px;height:30px}
+  #mixer .mxSync.on{background:#2bff5a!important;color:#002a0c!important}
+  #mixer .mxLp.on{background:#19d3ff!important;color:#00222c!important}
+  .mxDeslis{display:flex;gap:10px;width:100%}
+  .mxDeslis label{flex:1;font-size:13px;color:#c9cbd3;display:flex;align-items:center;gap:6px}
+  .mxDeslis input{flex:1;accent-color:#fff}
+  .mxXfZona{background:#15171d;margin:4px 10px;border-radius:14px;padding:8px 10px}
+  .mxXfFila{display:flex;align-items:center;gap:8px;margin:4px 0}
+  .mxXfFila input{flex:1;accent-color:#fff;height:34px}
+  .mxXfFila button{font-size:15px;padding:9px 12px;font-weight:700}
+  .mxXfFila button#mxXfC,.mxXfFila button#mxPasar{flex:1}
+  #mixer #mxPasar{background:var(--acc);color:#fff}
+  .mxOnda{height:17vh!important;min-height:100px!important}
   .mxCtrl{display:flex;justify-content:center;align-items:center;gap:12px;padding:8px}
   .mxCtrl button{font-size:17px;padding:10px 14px;border-radius:24px}
   #mixer .mxBig{width:60px;height:60px;border-radius:50%;background:#fff;color:#0e0f13;display:flex;align-items:center;justify-content:center;padding:0}
@@ -479,24 +497,38 @@
 
 <!-- ===== Mixer (estilo DJ) ===== -->
 <div id="mixer">
-  <div class="mxCab"><button class="ib" id="mxCerrar" title="Cerrar">✕</button><h2>Mixer</h2>
+  <div class="mxCab"><button class="ib" id="mxCerrar" title="Cerrar">✕</button><h2>Mixer DJ</h2>
     <button class="mxZ" id="mxZmenos" title="Ver más tiempo">🔍−</button><button class="mxZ" id="mxZmas" title="Acercar">🔍+</button></div>
-  <div class="mxInfo" id="mxInfoA"><div class="por"></div><div class="tx"><div class="mxT"></div><div class="mxAr"></div></div>
+  <div class="mxInfo" id="mxInfoA"><span class="mxLetra mxA">A</span><div class="por"></div><div class="tx"><div class="mxT"></div><div class="mxAr"></div></div>
     <div class="der"><div class="mxBpm"></div><div><span class="mxTono"></span> <span id="mxTiempoA" class="mxTiempo"></span></div></div></div>
   <canvas id="mxOndaA" class="mxOnda"></canvas>
-  <div class="mxCtrl">
-    <button id="mxAtr" title="Atrás 5 s">⟲5</button>
-    <button id="mxPlay" class="mxBig" title="Reproducir / pausa"></button>
-    <button id="mxAde" title="Adelante 5 s">5⟳</button>
-    <button id="mxLoop">🔁 Repetir ▾</button>
+  <div class="mxBotones" id="mxPlatoA">
+    <button class="mxP mxBig" title="Reproducir / pausa plato A"></button>
+    <button class="mxCue" title="Volver al punto de entrada">CUE</button>
+    <button class="mxSync" title="Igualar velocidad y golpes con el otro plato">SYNC</button>
+    <button class="mxLp" title="Repetir compases">🔁</button>
+    <button class="mxElegir" title="Cargar otra canción en este plato">🎯</button>
+    <div class="mxDeslis"><label>Vol <input type="range" class="mxVol" min="0" max="1.2" step="0.01" value="1"></label>
+      <label>Bajos <input type="range" class="mxBajo" min="-26" max="6" step="1" value="0"></label></div>
+  </div>
+  <div class="mxXfZona">
+    <div class="mxXfFila"><button id="mxXfA" class="mxA">A</button><input type="range" id="mxXf" min="0" max="1" step="0.01" value="0"><button id="mxXfB" class="mxB">B</button></div>
+    <div class="mxXfFila"><button id="mxXfC">Centro (suenan las dos)</button><button id="mxPasar">⇄ Pasar al otro (8 s)</button></div>
+  </div>
+  <div class="mxBotones" id="mxPlatoB">
+    <button class="mxP mxBig" title="Reproducir / pausa plato B"></button>
+    <button class="mxCue" title="Volver al punto de entrada">CUE</button>
+    <button class="mxSync" title="Igualar velocidad y golpes con el otro plato">SYNC</button>
+    <button class="mxLp" title="Repetir compases">🔁</button>
+    <button class="mxElegir" title="Cargar otra canción en este plato">🎯</button>
+    <div class="mxDeslis"><label>Vol <input type="range" class="mxVol" min="0" max="1.2" step="0.01" value="1"></label>
+      <label>Bajos <input type="range" class="mxBajo" min="-26" max="6" step="1" value="0"></label></div>
   </div>
   <canvas id="mxOndaB" class="mxOnda"></canvas>
-  <div class="mxInfo" id="mxInfoB"><div class="por"></div><div class="tx"><div class="mxT"></div><div class="mxAr"></div></div>
-    <div class="der"><div class="mxBpm"></div><div><span class="mxTono"></span> <span id="mxTiempoB" class="mxTiempo"></span></div><div id="mxEnEspera"></div></div></div>
+  <div class="mxInfo" id="mxInfoB"><span class="mxLetra mxB">B</span><div class="por"></div><div class="tx"><div class="mxT"></div><div class="mxAr"></div></div>
+    <div class="der"><div class="mxBpm"></div><div><span class="mxTono"></span> <span id="mxTiempoB" class="mxTiempo"></span></div></div></div>
   <div id="mxCompat"></div>
-  <div class="mxAcc"><button id="mxMezclar">⇄ Mezclar ahora</button><button id="mxElegir">🎯 Elegir la siguiente</button></div>
-  <canvas id="mxResumen"></canvas>
-  <div class="mxNota">Azul = graves (bombo, bajo) · Naranja = medios (voz) · Blanco = agudos · Líneas = golpes (las fuertes, cada compás) · Línea verde = lo que suena. Arrastra la onda de arriba para moverte.</div>
+  <div class="mxNota">Cómo se juega: con las dos sonando, toca <b>SYNC</b> en un plato para igualar su velocidad y unir los golpes (las líneas blancas quedan alineadas). Luego mueve el <b>crossfader</b> (A ↔ B) o baja el <b>Vol</b> de una para que suene la otra. Truco DJ: baja los <b>Bajos</b> de la que entra y súbelos cuando la otra salga. Azul = graves · Naranja = medios · Blanco = agudos · Verde = lo que suena.</div>
 </div>
 
 <div id="velo"></div>
@@ -1297,7 +1329,7 @@ ponerDJ(0, false);
    (título, barra, letra y pantalla de bloqueo). Con la mesa abierta, el modo DJ automático descansa. */
 let mesaAbierta = false, mesaManual = false, xfArrastre = false, xfAnim = null, mesaTimer = null;
 const platosEl = [...document.querySelectorAll('.plato')];
-function avisoMesa(t){ $('mesaAviso').textContent = t; clearTimeout(avisoMesa.t); avisoMesa.t = setTimeout(() => $('mesaAviso').textContent = '', 5000); }
+function avisoMesa(t){ if(typeof mixerAbierto !== 'undefined' && mixerAbierto) toast(t, 4000); $('mesaAviso').textContent = t; clearTimeout(avisoMesa.t); avisoMesa.t = setTimeout(() => $('mesaAviso').textContent = '', 5000); }
 function tomarControl(){                 // si había una mezcla automática, se detiene donde va (sin saltos)
   if(timerMezcla){ clearTimeout(timerMezcla); timerMezcla = null; }
   pararRampaVel(); mezclando = false; proxima = null; mesaManual = true;
@@ -2889,31 +2921,33 @@ function golpesDe(c){
   return null;
 }
 
-let mixerAbierto = false, mxSeg = 12, mxLoop = null, mxLoopN = 0, mxA = null, mxB = null;
-function deckB(){ return otroDeck(); }
-function cancionB(){ return proxima && proxima.c && lista.includes(proxima.c) ? proxima.c : null; }
-function pintarDeckMx(cual, c, deck){
-  const caja = $(cual === 'A' ? 'mxInfoA' : 'mxInfoB');
+// ===== Consola DJ: Plato A (arriba) y Plato B (abajo) suenan a la vez; tú mezclas =====
+let mixerAbierto = false, mxSeg = 12, mxAbrioMesa = false, mxPintado = [undefined, undefined], mxCuadro = 0;
+const mxLoops = [null, null], syncLock = [false, false], syncM = [1, 1];
+const LETRA_PLATO = ['A', 'B'];
+function mxEl(k, sel){ return $('mxPlato' + LETRA_PLATO[k]).querySelector(sel); }
+function pintarInfoPlato(k){
+  const c = enPlato[k], d = decks[k], caja = $('mxInfo' + LETRA_PLATO[k]);
   const por = caja.querySelector('.por'), u = c ? urlMini(c) : '';
   por.innerHTML = u ? `<img src="${u}" alt="">` : ico('note');
-  caja.querySelector('.mxT').textContent = c ? titulo(c) : (cual === 'B' ? 'Sin siguiente canción' : 'Sin canción');
+  caja.querySelector('.mxT').textContent = c ? titulo(c) : 'Plato vacío · toca 🎯 para cargar una canción';
   caja.querySelector('.mxAr').textContent = c ? (c.artista || '') : '';
-  const g = c ? golpesDe(c) : null, rate = deck ? (deck.playbackRate || 1) : 1;
-  caja.querySelector('.mxBpm').textContent = g ? (60 / g.p * rate).toFixed(rate === 1 ? 0 : 1) + ' bpm' : (c && c.bpm ? c.bpm + ' bpm' : '— bpm');
+  const g = c ? golpesDe(c) : null, r = d.playbackRate || 1;
+  caja.querySelector('.mxBpm').textContent = g ? (60 / g.p * r).toFixed(1) + ' bpm' : (c && c.bpm ? c.bpm + ' bpm' : '— bpm');
   const tn = caja.querySelector('.mxTono');
   tn.textContent = c && c.tono ? c.tono : '…'; tn.title = c && c.tonoNom ? 'Tono: ' + c.tonoNom : 'Calculando el tono';
-  const a = lista[actual], b = cancionB(), ok = a && b ? tonosCombinan(a.tono, b.tono) : null;
-  const cp = $('mxCompat');
-  if(!a || !b){ cp.textContent = ''; return; }
-  const ga = golpesDe(a), gb = golpesDe(b);
-  const ta = ga ? tempoDJ(60 / ga.p) : 0, tb = gb ? tempoDJ(60 / gb.p) : 0;
-  const vel = ta && tb ? Math.abs(tb / ta - 1) : null;
-  cp.innerHTML = '';
+  pintarCompat();
+}
+function pintarCompat(){
+  const a = enPlato[0], b = enPlato[1], cp = $('mxCompat'); cp.innerHTML = '';
+  if(!a || !b) return;
+  const ok = tonosCombinan(a.tono, b.tono), ga = golpesDe(a), gb = golpesDe(b);
+  const ta = ga ? tempoDJ(60 / ga.p) : 0, tb = gb ? tempoDJ(60 / gb.p) : 0, vel = ta && tb ? Math.abs(tb / ta - 1) : null;
   const s1 = document.createElement('span'), s2 = document.createElement('span');
   s1.textContent = ok === null ? '🎼 Tono: calculando…' : ok ? '🎼 Tonos que combinan' : '🎼 Tonos distintos (puede chocar)';
   s1.className = ok ? 'bien' : ok === false ? 'mal' : '';
-  s2.textContent = vel === null ? '🥁 Velocidad: calculando…' : vel <= 0.06 ? '🥁 Velocidad parecida: se unen los golpes' : '🥁 Velocidad muy distinta';
-  s2.className = vel !== null && vel <= 0.06 ? 'bien' : vel !== null ? 'mal' : '';
+  s2.textContent = vel === null ? '🥁 Velocidad: calculando…' : vel <= 0.1 ? '🥁 Se pueden igualar: toca SYNC' : '🥁 Velocidades muy distintas';
+  s2.className = vel !== null && vel <= 0.1 ? 'bien' : vel !== null ? 'mal' : '';
   cp.append(s1, s2);
 }
 function tamCanvas(cv){
@@ -2922,161 +2956,242 @@ function tamCanvas(cv){
   if(cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; }
   return {w, h, dpr};
 }
-function dibujarOnda(cv, c, t, apagada){
-  const {w, h, dpr} = tamCanvas(cv), x = cv.getContext('2d');
+function dibujarOnda(cv, k){
+  const c = enPlato[k], d = decks[k], {w, h, dpr} = tamCanvas(cv), x = cv.getContext('2d');
   x.clearRect(0, 0, w, h);
-  const xP = Math.round(w * 0.2), pps = w / mxSeg, mid = h / 2;
-  const o = c ? ondas.get(c.id) : null;
-  if(!c){ return; }
-  if(!o){ x.fillStyle = 'rgba(255,255,255,.6)'; x.font = `${15 * dpr}px sans-serif`; x.textAlign = 'center'; x.fillText('Analizando la canción…', w / 2, mid); return; }
-  x.globalAlpha = apagada ? 0.5 : 1;
-  // compases y golpes
+  if(!c) return;
+  const t = d.currentTime || 0, r = d.playbackRate || 1;
+  // misma escala de TIEMPO REAL en los dos platos: así, si están igualados, los golpes quedan uno encima del otro
+  const xP = Math.round(w * 0.25), pps = w / (mxSeg * r), mid = h / 2;
+  const o = ondas.get(c.id);
+  const vol = gDeck && gPlato[k] ? gDeck[k].gain.value * gPlato[k].gain.value : 1;
+  x.globalAlpha = d.paused ? 0.45 : 0.35 + 0.65 * Math.min(1, vol);      // se ve más apagada mientras menos suena
   const g = golpesDe(c);
   if(g){
     const t0 = t - xP / pps, t1 = t + (w - xP) / pps;
-    let k = Math.ceil((t0 - g.f) / g.p);
-    for(let bt = g.f + k * g.p; bt <= t1; bt += g.p, k++){
+    let n = Math.ceil((t0 - g.f) / g.p);
+    for(let bt = g.f + n * g.p; bt <= t1; bt += g.p, n++){
       const xx = xP + (bt - t) * pps; if(xx < 0) continue;
-      const compas = ((k % 4) + 4) % 4 === 0;
-      x.fillStyle = compas ? 'rgba(255,255,255,.38)' : 'rgba(255,255,255,.12)';
+      const compas = ((n % 4) + 4) % 4 === 0;
+      x.fillStyle = compas ? 'rgba(255,255,255,.45)' : 'rgba(255,255,255,.14)';
       x.fillRect(Math.round(xx), 0, compas ? 2 * dpr : dpr, h);
     }
   }
-  // onda: tres capas (graves, medios, agudos)
-  const capas = [['l', '#2f7bff'], ['m', '#ff9b21'], ['h', '#ffffff']];
-  const esc = (h / 2 - 4 * dpr) / 255, paso = Math.max(1, Math.round(dpr));
-  for(const [k, col] of capas){
-    x.fillStyle = col; const a = o[k];
-    for(let px = 0; px < w; px += paso){
-      const i = Math.floor((t + (px - xP) / pps) * ONDA_FPS);
-      if(i < 0 || i >= o.n) continue;
-      const v = a[i] * esc; if(v < 0.5) continue;
-      x.fillRect(px, mid - v, paso, v * 2);
+  if(!o){ x.globalAlpha = 1; x.fillStyle = 'rgba(255,255,255,.6)'; x.font = `${15 * dpr}px sans-serif`; x.textAlign = 'center'; x.fillText('Analizando la canción…', w / 2, mid); }
+  else {
+    const esc = (h / 2 - 4 * dpr) / 255, paso = Math.max(1, Math.round(dpr));
+    for(const [b, col] of [['l', '#2f7bff'], ['m', '#ff9b21'], ['h', '#ffffff']]){
+      x.fillStyle = col; const a = o[b];
+      for(let px = 0; px < w; px += paso){
+        const i = Math.floor((t + (px - xP) / pps) * ONDA_FPS);
+        if(i < 0 || i >= o.n) continue;
+        const v = a[i] * esc; if(v >= 0.5) x.fillRect(px, mid - v, paso, v * 2);
+      }
     }
   }
-  // repetición (loop)
-  if(mxLoop && c === lista[actual]){
-    const x1 = xP + (mxLoop.ini - t) * pps, x2 = xP + (mxLoop.fin - t) * pps;
+  const lp = mxLoops[k];
+  if(lp){
+    const x1 = xP + (lp.ini - t) * pps, x2 = xP + (lp.fin - t) * pps;
     x.globalAlpha = 1; x.strokeStyle = '#19d3ff'; x.lineWidth = 3 * dpr; x.strokeRect(x1, 2 * dpr, x2 - x1, h - 4 * dpr);
     x.fillStyle = 'rgba(25,211,255,.10)'; x.fillRect(x1, 0, x2 - x1, h);
   }
-  // línea verde: lo que suena ahora
   x.globalAlpha = 1; x.fillStyle = '#2bff5a'; x.fillRect(xP - dpr, 0, 3 * dpr, h);
-}
-function dibujarResumen(){
-  const cv = $('mxResumen'), c = lista[actual];
-  const {w, h} = tamCanvas(cv), x = cv.getContext('2d'); x.clearRect(0, 0, w, h);
-  const o = c ? ondas.get(c.id) : null; if(!o) return;
-  const mid = h / 2, esc = (h / 2) / 255, dur = audio.duration || o.dur;
-  for(const [k, col] of [['l', '#2f7bff'], ['m', '#ff9b21'], ['h', '#ffffff']]){
-    x.fillStyle = col;
-    for(let px = 0; px < w; px++){
-      const i0 = Math.floor(px / w * o.n), i1 = Math.max(i0 + 1, Math.floor((px + 1) / w * o.n));
-      let m = 0; for(let i = i0; i < i1; i++) if(o[k][i] > m) m = o[k][i];
-      const v = m * esc; x.fillRect(px, mid - v, 1, v * 2);
-    }
-  }
-  const xp = (audio.currentTime / dur) * w;
-  x.fillStyle = 'rgba(0,0,0,.45)'; x.fillRect(0, 0, xp, h);
-  x.fillStyle = '#2bff5a'; x.fillRect(xp - 1, 0, 3, h);
+  x.fillStyle = k ? '#f78166' : '#58a6ff'; x.font = `bold ${16 * dpr}px sans-serif`; x.textAlign = 'left'; x.fillText(LETRA_PLATO[k], 8 * dpr, 20 * dpr);
 }
 function cuadroMixer(){
   if(!mixerAbierto) return;
   requestAnimationFrame(cuadroMixer);
-  const a = lista[actual], b = cancionB();
-  if(a !== mxA){ mxA = a; mxLoop = null; pintarLoop(); pintarDeckMx('A', a, audio); if(a){ prepararBordes(a).then(() => pintarDeckMx('A', lista[actual], audio)); analizarOnda(a).then(() => { pintarDeckMx('A', lista[actual], audio); pintarDeckMx('B', cancionB(), null); }); } }
-  if(b !== mxB){ mxB = b; pintarDeckMx('B', b, null); if(b){ prepararBordes(b).then(() => pintarDeckMx('B', cancionB(), null)); analizarOnda(b).then(() => pintarDeckMx('B', cancionB(), null)); } }
-  revisarLoop();
-  dibujarOnda($('mxOndaA'), a, audio.currentTime || 0, false);
-  const dB = deckB(), suenaB = b && (mezclando || !dB.paused);
-  dibujarOnda($('mxOndaB'), b, suenaB ? dB.currentTime : (b ? (b.ini || 0) : 0), !suenaB);
-  $('mxEnEspera').textContent = b ? (suenaB ? 'sonando' : 'en espera · entra aquí') : '';
-  if(!cuadroMixer.n || ++cuadroMixer.n % 10 === 0){
-    cuadroMixer.n = cuadroMixer.n || 1;
-    dibujarResumen();
-    const dur = audio.duration || 0;
-    $('mxTiempoA').textContent = a ? fmt(audio.currentTime) + ' / ' + fmt(dur) : '';
-    $('mxTiempoB').textContent = b && dB.duration ? fmt(suenaB ? dB.currentTime : (b.ini || 0)) + ' / ' + fmt(dB.duration) : '';
-    $('mxPlay').innerHTML = ico(audio.paused ? 'play' : 'pause');
+  for(const k of [0, 1]){
+    const c = enPlato[k];
+    if(c !== mxPintado[k]){
+      mxPintado[k] = c; mxLoops[k] = null; syncLock[k] = false; pintarBotonesPlato(k); pintarInfoPlato(k);
+      if(c){ prepararBordes(c).then(() => pintarInfoPlato(k)); analizarOnda(c).then(() => { pintarInfoPlato(0); pintarInfoPlato(1); }); }
+    }
+    dibujarOnda($('mxOnda' + LETRA_PLATO[k]), k);
+  }
+  if(++mxCuadro % 8 === 0){
+    for(const k of [0, 1]){
+      const d = decks[k], c = enPlato[k];
+      $('mxTiempo' + LETRA_PLATO[k]).textContent = c ? fmt(d.currentTime) + ' / ' + fmt(d.duration) : '';
+      mxEl(k, '.mxP').innerHTML = ico(d.paused ? 'play' : 'pause');
+      if(mxCuadro % 24 === 0) pintarInfoPlato(k);
+    }
+    if(!mxXfArr) $('mxXf').value = xfDeGanancias();
   }
 }
-// Repetir un pedazo de N compases (loop), unido a los golpes
+function pintarBotonesPlato(k){
+  mxEl(k, '.mxSync').classList.toggle('on', syncLock[k]);
+  const lp = mxLoops[k], b = mxEl(k, '.mxLp');
+  b.textContent = lp ? `🔁 ${lp.n}` : '🔁'; b.classList.toggle('on', !!lp);
+  if(gPlato[k]) mxEl(k, '.mxVol').value = gPlato[k].gain.value;
+  if(gBajo) mxEl(k, '.mxBajo').value = Math.round(gBajo[k].gain.value);
+}
+// --- Sync: iguala la velocidad y une los golpes con el otro plato (y los mantiene unidos) ---
+function faseObjetivo(k){
+  const o = 1 - k, c = enPlato[k], co = enPlato[o], d = decks[k], dO = decks[o];
+  const g = golpesDe(c), go = golpesDe(co); if(!g || !go) return null;
+  const golpesO = (dO.currentTime - go.f) / go.p, mios = (d.currentTime - g.f) / g.p, m = syncM[k];
+  let obj;
+  if(m === 1){ const barO = ((golpesO % 4) + 4) % 4; obj = Math.round((mios - barO) / 4) * 4 + barO; }   // une también los compases
+  else { const ph = (((golpesO / m) % 1) + 1) % 1; obj = Math.round(mios - ph) + ph; }
+  return {g, mios, obj};
+}
+function velocidadSync(k){
+  const o = 1 - k, g = golpesDe(enPlato[k]), go = golpesDe(enPlato[o]); if(!g || !go) return null;
+  const realO = go.p / (decks[o].playbackRate || 1);
+  let mejor = null;
+  for(const m of [1, 2, 0.5]){ const r = g.p / (realO * m); if(Math.abs(r - 1) <= 0.12 && (!mejor || Math.abs(r - 1) < Math.abs(mejor.r - 1))) mejor = {r, m}; }
+  return mejor;
+}
+function alinear(k){
+  const f = faseObjetivo(k); if(!f) return;
+  const t = f.g.f + f.obj * f.g.p, d = decks[k];
+  if(t >= 0 && t < (d.duration || 0) - 1) d.currentTime = t + (d.paused ? 0 : 0.012);
+}
+function hacerSync(k){
+  despertarAudio(); if(!mesaManual) tomarControl();
+  const c = enPlato[k], co = enPlato[1 - k];
+  if(!c || !co) return toast('Carga una canción en cada plato');
+  if(!golpesDe(c) || !golpesDe(co)) return toast('Todavía estoy midiendo los golpes… intenta en unos segundos');
+  const v = velocidadSync(k);
+  if(!v) return toast('Las velocidades son muy distintas: no se pueden igualar sin que se note');
+  syncM[k] = v.m; velocidad(decks[k], v.r); alinear(k);
+  syncLock[k] = true; syncLock[1 - k] = false; pintarBotonesPlato(0); pintarBotonesPlato(1);
+  toast(`🔗 Plato ${LETRA_PLATO[k]} igualado al ${LETRA_PLATO[1 - k]}: misma velocidad y golpes unidos`);
+}
+// mientras el SYNC está prendido, se corrige solo poco a poco (como el "sync lock" de las consolas)
+setInterval(() => {
+  for(const k of [0, 1]){
+    if(!syncLock[k]) continue;
+    const d = decks[k], dO = decks[1 - k];
+    if(!enPlato[k] || !enPlato[1 - k]){ syncLock[k] = false; continue; }
+    if(d.paused || dO.paused || d.seeking) continue;
+    const v = velocidadSync(k); if(!v){ syncLock[k] = false; pintarBotonesPlato(k); continue; }
+    const f = faseObjetivo(k); if(!f) continue;
+    let err = f.mios - f.obj; err -= Math.round(err);                   // en golpes, entre -0,5 y 0,5
+    if(Math.abs(err) > 0.2){ alinear(k); velocidad(d, v.r); continue; }
+    velocidad(d, v.r * (1 - Math.max(-0.02, Math.min(0.02, err * 0.1))));
+  }
+}, 250);
+async function playPlato(k){
+  despertarAudio(); const d = decks[k];
+  if(!enPlato[k] || !d.src) return toast('Primero carga una canción en el plato ' + LETRA_PLATO[k]);
+  if(!mesaManual) tomarControl();
+  if(d.paused){
+    if(syncLock[k] && !decks[1 - k].paused) alinear(k);                   // entra justo en el golpe
+    try{ await d.play(); }catch(e){}
+    revisarPrincipal(+$('mxXf').value);
+  } else d.pause();
+}
+// --- Repetir N compases (loop) en cada plato ---
 function revisarLoop(){
-  if(!mxLoop) return;
-  if(lista[actual] !== mxLoop.c){ mxLoop = null; pintarLoop(); return; }
-  const t = audio.currentTime;
-  if(t >= mxLoop.fin) audio.currentTime = mxLoop.ini + (t - mxLoop.fin);
+  for(const k of [0, 1]){
+    const lp = mxLoops[k]; if(!lp) continue;
+    if(enPlato[k] !== lp.c){ mxLoops[k] = null; continue; }
+    const d = decks[k];
+    if(d.currentTime >= lp.fin) d.currentTime = lp.ini + (d.currentTime - lp.fin);
+  }
 }
-setInterval(revisarLoop, 40);     // también con el mixer cerrado o la pantalla apagada
-function ponerLoop(n){
-  mxLoopN = n; const c = lista[actual];
-  if(!n || !c){ mxLoop = null; pintarLoop(); return; }
+setInterval(revisarLoop, 25);
+function ponerLoop(k, n){
+  const c = enPlato[k], d = decks[k];
+  if(!n || !c){ mxLoops[k] = null; pintarBotonesPlato(k); return; }
   const g = golpesDe(c) || {p: 0.5, f: 0};
-  const t = audio.currentTime, ini = g.f + Math.floor((t - g.f) / g.p + 0.0001) * g.p;
-  mxLoop = {c, ini: Math.max(0, ini), fin: Math.max(0, ini) + n * 4 * g.p};
-  pintarLoop();
+  const ini = Math.max(0, g.f + Math.floor((d.currentTime - g.f) / g.p + 0.0001) * g.p);
+  mxLoops[k] = {c, n, ini, fin: ini + n * 4 * g.p};
+  pintarBotonesPlato(k);
 }
-function pintarLoop(){ $('mxLoop').textContent = mxLoop ? `🔁 ${mxLoopN} compás${mxLoopN === 1 ? '' : 'es'} ▾` : '🔁 Repetir ▾'; $('mxLoop').classList.toggle('on', !!mxLoop); }
-$('mxLoop').onclick = () => abrirHoja('Repetir un pedazo (loop)', 'Se repite unido a los golpes, desde el golpe que está sonando', [
-  ...[1, 2, 4, 8, 16].map(n => ({t: `🔁  ${n} compás${n === 1 ? '' : 'es'}${n === 8 ? '  (como en los DJ)' : ''}`, f: () => ponerLoop(n)})),
-  {t: '⏹  Quitar la repetición', f: () => ponerLoop(0)},
-]);
-function abrirMixer(){
-  if(actual < 0) return toast('Primero elige una canción');
-  armarAudio();
-  mixerAbierto = true; mxA = mxB = undefined;
-  $('mixer').classList.add('ver'); marcarHist();
-  if(!proxima && !mezclando) prepararSiguiente();
-  try{ AndroidJAT.colorBarra('#0e0f13', true); }catch(e){}
-  requestAnimationFrame(cuadroMixer);
-}
-function cerrarMixer(){ mixerAbierto = false; $('mixer').classList.remove('ver'); barraApp(); }
-$('mxCerrar').onclick = cerrarMixer;
-$('mxPlay').onclick = play;
-$('mxAtr').onclick = () => { audio.currentTime = Math.max(0, audio.currentTime - 5); };
-$('mxAde').onclick = () => { audio.currentTime = Math.min((audio.duration || 0) - 0.5, audio.currentTime + 5); };
-$('mxZmas').onclick = () => { mxSeg = Math.max(4, mxSeg / 1.5); };
-$('mxZmenos').onclick = () => { mxSeg = Math.min(60, mxSeg * 1.5); };
-$('mxMezclar').onclick = () => {
-  if(mezclando) return toast('Ya se está mezclando');
-  const b = cancionB(); if(!b) return toast('No hay siguiente canción');
-  if(audio.paused) return toast('Primero dale ▶ a la canción de arriba');
-  mxLoop = null; pintarLoop();
-  mezclarA(lista.indexOf(b), djSeg || 8, true);
-  toast(`⇄ Mezclando en ${djSeg || 8} s`);
-};
-$('mxElegir').onclick = () => {
-  const a = lista[actual], ga = a ? golpesDe(a) : null, ta = ga ? tempoDJ(60 / ga.p) : (a && a.bpm ? tempoDJ(a.bpm) : 0);
-  const cand = lista.map((c, i) => ({c, i})).filter(x => x.i !== actual);
+// --- Elegir canción para un plato (primero las que mejor se mezclan con el otro) ---
+function elegirParaPlato(k){
+  const o = enPlato[1 - k], go = o ? golpesDe(o) : null, ta = go ? tempoDJ(60 / go.p) : (o && o.bpm ? tempoDJ(o.bpm) : 0);
+  const cand = lista.map((c, i) => ({c, i})).filter(x => x.c !== o);
   const puntos = x => {
     const tb = x.c.bpm ? tempoDJ(x.c.bpm) : 0, vel = ta && tb ? Math.abs(tb / ta - 1) : 1;
-    const ok = tonosCombinan(a && a.tono, x.c.tono);
+    const ok = tonosCombinan(o && o.tono, x.c.tono);
     return (vel <= 0.06 ? 0 : 2 + vel) + (ok ? 0 : ok === false ? 1 : 0.5);
   };
-  cand.sort((x, y) => puntos(x) - puntos(y));
+  cand.sort((a, b) => puntos(a) - puntos(b));
   const cont = document.createElement('div');
   cand.slice(0, 80).forEach(x => {
-    const f = filaCancion(x.i, () => {
-      cerrarHoja();
-      if(mezclando) return toast('Espera a que termine la mezcla');
-      proxima = null; prepararSiguiente(x.i); toast('🎯 Siguiente: ' + titulo(x.c));
-    });
-    const tb = x.c.bpm ? tempoDJ(x.c.bpm) : 0, ok = tonosCombinan(a && a.tono, x.c.tono);
+    const f = filaCancion(x.i, () => { cerrarHoja(); cargarEnPlato(k, x.i); });
+    const tb = x.c.bpm ? tempoDJ(x.c.bpm) : 0, ok = tonosCombinan(o && o.tono, x.c.tono);
     const info = document.createElement('div'); info.className = 'x';
     info.textContent = [tb ? `🥁 ${x.c.bpm} bpm` + (ta && Math.abs(tb / ta - 1) <= 0.06 ? ' ✔' : '') : '', x.c.tono ? `🎼 ${x.c.tono}` + (ok ? ' ✔' : '') : ''].filter(Boolean).join(' · ');
     f.querySelector('.tx').append(info); f.querySelector('.ib').remove();
     cont.append(f);
   });
-  abrirHoja('Elegir la siguiente canción', 'Primero las que mejor se mezclan (velocidad y tono parecidos ✔)', [cont]);
-};
-// Arrastrar la onda de arriba para moverse en la canción; tocar el resumen para saltar
-(() => {
-  const cv = $('mxOndaA'); let x0 = null, t0 = 0;
-  cv.addEventListener('pointerdown', e => { x0 = e.clientX; t0 = audio.currentTime; cv.setPointerCapture(e.pointerId); });
-  cv.addEventListener('pointermove', e => { if(x0 === null) return; const pps = cv.getBoundingClientRect().width / mxSeg; audio.currentTime = Math.max(0, Math.min((audio.duration || 1) - 0.3, t0 - (e.clientX - x0) / pps)); });
+  abrirHoja('Cargar en el plato ' + LETRA_PLATO[k], o ? 'Primero las que mejor se mezclan con "' + titulo(o) + '" ✔' : '', [cont]);
+}
+// --- Abrir / cerrar ---
+let mxXfArr = false;
+function abrirMixer(){
+  if(actual < 0) return toast('Primero elige una canción');
+  despertarAudio();
+  mixerAbierto = true; mxPintado = [undefined, undefined];
+  if(!mesaAbierta){ abrirMesa(true); mxAbrioMesa = true; } else mxAbrioMesa = false;
+  const kP = decks.indexOf(audio), kO = 1 - kP;
+  if(!enPlato[kP] && audio.src) enPlato[kP] = lista[actual];
+  if(!enPlato[kO]){ const i = proxima && lista.includes(proxima.c) ? proxima.i : siguienteIndice(true); if(i >= 0 && lista[i] !== enPlato[kP]) cargarEnPlato(kO, i); }
+  [0, 1].forEach(pintarBotonesPlato);
+  $('mixer').classList.add('ver'); marcarHist();
+  try{ AndroidJAT.colorBarra('#0e0f13', true); }catch(e){}
+  requestAnimationFrame(cuadroMixer);
+}
+function cerrarMixer(){
+  mixerAbierto = false; $('mixer').classList.remove('ver');
+  syncLock[0] = syncLock[1] = false; mxLoops[0] = mxLoops[1] = null;
+  if(mxAbrioMesa && mesaAbierta) abrirMesa(false);     // queda sonando solo el plato que más se oye
+  barraApp();
+}
+$('mxCerrar').onclick = cerrarMixer;
+$('mxZmas').onclick = () => { mxSeg = Math.max(4, mxSeg / 1.5); };
+$('mxZmenos').onclick = () => { mxSeg = Math.min(60, mxSeg * 1.5); };
+[0, 1].forEach(k => {
+  const d = decks[k];
+  mxEl(k, '.mxP').onclick = () => playPlato(k);
+  mxEl(k, '.mxCue').onclick = () => { const c = enPlato[k]; if(c){ d.currentTime = c.ini > 0.3 ? c.ini : 0; if(syncLock[k] && !d.paused) alinear(k); } };
+  mxEl(k, '.mxSync').onclick = () => { if(syncLock[k]){ syncLock[k] = false; pintarBotonesPlato(k); toast('Sync apagado'); } else hacerSync(k); };
+  mxEl(k, '.mxLp').onclick = () => abrirHoja('Repetir en el plato ' + LETRA_PLATO[k] + ' (loop)', 'Se repite unido a los golpes, desde el golpe que está sonando', [
+    ...[1, 2, 4, 8, 16].map(n => ({t: `🔁  ${n} compás${n === 1 ? '' : 'es'}`, f: () => ponerLoop(k, n)})),
+    {t: '⏹  Quitar la repetición', f: () => ponerLoop(k, 0)},
+  ]);
+  mxEl(k, '.mxElegir').onclick = () => elegirParaPlato(k);
+  mxEl(k, '.mxVol').oninput = e => { despertarAudio(); if(gPlato[k]) gPlato[k].gain.setTargetAtTime(+e.target.value, ctxA.currentTime, 0.02); };
+  mxEl(k, '.mxBajo').oninput = e => { despertarAudio(); if(gBajo){ gBajo[k].gain.cancelScheduledValues(0); gBajo[k].gain.setTargetAtTime(+e.target.value, ctxA.currentTime, 0.02); } };
+  // arrastrar la onda para moverse en esa canción
+  const cv = $('mxOnda' + LETRA_PLATO[k]); let x0 = null, t0 = 0;
+  cv.addEventListener('pointerdown', e => { if(!enPlato[k]) return; x0 = e.clientX; t0 = d.currentTime; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointermove', e => { if(x0 === null) return; const pps = cv.getBoundingClientRect().width / (mxSeg * (d.playbackRate || 1)); d.currentTime = Math.max(0, Math.min((d.duration || 1) - 0.3, t0 - (e.clientX - x0) / pps)); });
   cv.addEventListener('pointerup', () => { x0 = null; });
-  $('mxResumen').addEventListener('click', e => { const r = e.currentTarget.getBoundingClientRect(); if(audio.duration) audio.currentTime = (e.clientX - r.left) / r.width * audio.duration; });
-})();
+});
+$('mxXf').addEventListener('input', e => { mxXfArr = true; clearInterval(xfAnim); xfAnim = null; $('xf').value = e.target.value; aplicarXF(+e.target.value); });
+$('mxXf').addEventListener('change', () => { mxXfArr = false; });
+$('mxXfA').onclick = () => { clearInterval(xfAnim); xfAnim = null; animarXF(0, 0.4); };
+$('mxXfC').onclick = () => { clearInterval(xfAnim); xfAnim = null; animarXF(0.5, 0.4); };
+$('mxXfB').onclick = () => { clearInterval(xfAnim); xfAnim = null; animarXF(1, 0.4); };
+$('mxPasar').onclick = async () => {
+  despertarAudio(); if(!mesaManual) tomarControl();
+  const k = 1 - decks.indexOf(audio), d = decks[k];
+  if(!enPlato[k] || !d.src) return toast('Primero carga una canción en el plato ' + LETRA_PLATO[k]);
+  if(d.paused){ if(!syncLock[k] && velocidadSync(k)) hacerSync(k); else if(syncLock[k]) alinear(k); try{ await d.play(); }catch(e){} }
+  animarXF(k, 8); toast(`⇄ Pasando al plato ${LETRA_PLATO[k]} en 8 s`);
+};
+// cuando un plato terminó o quedó callado y quieto, se le carga sola la siguiente sugerida
+setInterval(() => {
+  if(!mixerAbierto) return;
+  for(const k of [0, 1]){
+    const d = decks[k], c = enPlato[k], o = enPlato[1 - k];
+    const termino = c && d.ended, calla = !gDeck || gDeck[k].gain.value < 0.02;
+    if((termino && calla) || (!c && o)){
+      const v = visibles().filter(i => lista[i] !== o && lista[i] !== c);
+      if(!v.length) continue;
+      const ta = o && o.bpm ? tempoDJ(o.bpm) : 0;
+      const afines = v.filter(i => lista[i].bpm && ta && Math.abs(tempoDJ(lista[i].bpm) / ta - 1) <= 0.06);
+      const elige = (afines.length ? afines : v)[Math.floor(Math.random() * (afines.length || v.length))];
+      cargarEnPlato(k, elige);
+    }
+  }
+}, 2000);
 
 /* ---------- Transmitir: elegir dónde suena (celular, parlante o audífonos Bluetooth) ---------- */
 function salidaActual(){

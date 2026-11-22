@@ -27,6 +27,7 @@
 - [x] Abrir con Reproductor JAT (22 nov): al tocar una canción en otra app (por ejemplo Archivos JAT), el Reproductor JAT aparece en "Abrir con" y la pone a sonar dentro de la lista de la música del celular
 - [x] Transmitir a otro aparato Bluetooth (22 nov): selector de salida de Android, ajustes de Bluetooth y "Sonando en"
 - [x] Mixer estilo DJ (22 nov): ondas de colores de las dos canciones, golpes/compases, BPM, tono Camelot, loop de compases, mezclar ahora, elegir la siguiente por compatibilidad; tono en el respaldo
+- [x] Mixer DJ de dos platos (22 nov): suenan a la vez, SYNC de velocidad y golpes con corrección automática, crossfader, Vol y Bajos por plato, carga sola la siguiente
 
 ## Pendientes / ideas
 - [ ] Favoritas también en Android Auto (una pestaña "Favoritas" en el carro)

@@ -5,6 +5,23 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 22 nov 2026 — Mixer DJ: las dos canciones a la vez, igualadas
+**Pedido por Jorge:** que el mixer iguale las canciones y suenen al mismo tiempo, para ir quitando el volumen de una y que suene la otra, como un DJ.
+
+**Novedades**
+- El Mixer ahora es una **consola DJ de dos platos**: **Plato A** (arriba) y **Plato B** (abajo) pueden **sonar al mismo tiempo**.
+- Cada plato tiene: **▶/⏸**, **CUE** (volver al punto de entrada), **SYNC**, **🔁 repetir compases**, **🎯 cargar otra canción** (primero las que mejor se mezclan), **Vol** y **Bajos**.
+- **SYNC**: iguala la velocidad con el otro plato **y une los golpes y los compases**. Queda prendido (verde) y **se corrige solo** poco a poco para que no se separen. Si le das ▶ con el SYNC prendido, entra justo en el golpe.
+- **Crossfader A ↔ B** en el centro: llevarlo a un lado o al otro, **Centro** (suenan las dos a la vez) y **⇄ Pasar al otro (8 s)** (mueve el crossfader solo; si hace falta, hace SYNC antes).
+- Las dos ondas usan la misma escala de tiempo: cuando están igualadas, **las líneas de los golpes quedan una encima de la otra**. La onda se ve más apagada mientras menos suena ese plato.
+- Cuando un plato termina y está callado, se le **carga sola la siguiente sugerida** (velocidad parecida), para seguir mezclando.
+- Al cerrar el mixer queda sonando solo el plato que más se oye y vuelve a su velocidad normal poco a poco.
+- Probado: con dos canciones de 120 y 122 bpm, el SYNC dejó el plato B a 120,1 bpm con los golpes desfasados solo 0,002 golpes.
+
+**Respaldo:** no guarda datos nuevos (el tono ya va en el respaldo).
+
+---
+
 ## 22 nov 2026 — Mixer (estilo DJ)
 **Pedido por Jorge:** crear la función mixer, como la de la captura (ondas de las dos canciones, BPM, tono "10A", "8 bars").
 
