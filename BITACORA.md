@@ -5,6 +5,17 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 22 nov 2026 — Abrir canciones desde otras apps
+**Pedido de Jorge:** al tocar una canción en Archivos JAT, en "Abrir con" no salía el Reproductor JAT.
+
+- La app Android ahora se anuncia como reproductor de audio: aparece en "Abrir con" para cualquier canción.
+- Busca esa canción en la música del celular (por nombre y tamaño) y la pone a sonar dentro de la lista normal, así siguiente/anterior, letra y carátula funcionan igual.
+- Si la canción no está en la música del celular, avisa "No encontré esa canción en tu música".
+
+**Respaldo (regla fija):** no se guarda nada nuevo.
+
+---
+
 ## 22 nov 2026 — Adiós al morado: azul marino o rojo
 **Pedido por Jorge:** cambiar todo lo morado de la interfaz por azul marino o rojo.
 

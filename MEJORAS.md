@@ -24,6 +24,7 @@
 - [x] Editar datos (TAG) de cada canción, reconocer una sola por el sonido, carátula por álbum cuando el título es "Track 04", álbumes del artista en "Cambiar carátula" (21 nov); van en el respaldo
 - [x] Letra a pantalla completa estilo Deezer (22 nov): fondo del color de la carátula o la carátula difuminada, líneas cantadas en blanco; va en el respaldo
 - [x] Sin morado (22 nov): interfaz en azul marino, con opción de rojo en Ajustes → Color de la app; va en el respaldo
+- [x] Abrir con Reproductor JAT (22 nov): al tocar una canción en otra app (por ejemplo Archivos JAT), el Reproductor JAT aparece en "Abrir con" y la pone a sonar dentro de la lista de la música del celular
 
 ## Pendientes / ideas
 - [ ] Favoritas también en Android Auto (una pestaña "Favoritas" en el carro)

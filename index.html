@@ -2338,6 +2338,17 @@ function sincronizarApp(){
   else if(actual >= 0 && !audio.src) cargar(actual, false, (leerEstado() || {}).posicion || 0);
   else if(actual < 0 && lista.length) cargar(visibles()[0] ?? 0, false);
 }
+/* Canción abierta desde otra app ("Abrir con" → Reproductor JAT, por ejemplo desde Archivos JAT) */
+function revisarPendiente(){
+  let r = '';
+  try{ r = AndroidJAT.pendiente(); }catch(e){ return; }
+  if(!r) return;
+  let i = lista.findIndex(c => c.deCarpeta && c.ruta === r);
+  if(i < 0){ sincronizarApp(); i = lista.findIndex(c => c.deCarpeta && c.ruta === r); }
+  if(i < 0){ toast('No encontré esa canción en tu música.'); return; }
+  colaFav = false;
+  irA(i);
+}
 function iniciarApp(){
   $('bCarpeta').textContent = '🔄 Buscar canciones nuevas';
   $('bCarpeta').onclick = () => { try{ AndroidJAT.pedirPermiso(); }catch(e){} sincronizarApp(); };
@@ -2347,6 +2358,8 @@ function iniciarApp(){
   setInterval(() => { if(document.visibilityState === 'visible') sincronizarApp(); }, 60000);
   document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') sincronizarApp(); });
   // botones de la notificación del celular
+  window.revisarPendiente = revisarPendiente;
+  revisarPendiente();
   window.appOrden = o => { if(o === 'play') play(); else if(o === 'sig') siguiente(false); else if(o === 'ant') anterior(); else if(o === 'pausa') audio.pause(); };
 }
 

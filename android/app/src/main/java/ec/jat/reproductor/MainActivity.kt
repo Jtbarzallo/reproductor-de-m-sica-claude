@@ -13,6 +13,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
@@ -108,6 +109,63 @@ class MainActivity : Activity() {
         setContentView(web)
         web.loadUrl("https://appassets.androidplatform.net/assets/web/index.html")
         pedirPermisos()
+        recibir(intent)
+    }
+
+    /** Canción abierta desde otra app ("Abrir con" → Reproductor JAT). */
+    private var pendiente: String? = null
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        recibir(intent)
+    }
+
+    private fun recibir(i: Intent?) {
+        if (i?.action != Intent.ACTION_VIEW) return
+        val uri = i.data ?: return
+        val ruta = rutaDe(uri)
+        if (ruta == null) {
+            Toast.makeText(this, "No encontré esa canción en la música del celular.", Toast.LENGTH_LONG).show()
+            return
+        }
+        pendiente = ruta
+        web.evaluateJavascript("window.revisarPendiente && revisarPendiente()", null)
+    }
+
+    /** Busca la canción en la música del celular y devuelve su ruta igual que en la lista ("Music/Telegram/x.mp3"). */
+    private fun rutaDe(uri: Uri): String? {
+        var nombre: String? = null
+        var tam = -1L
+        try {
+            if (uri.scheme == "file") {
+                val f = java.io.File(uri.path ?: return null)
+                nombre = f.name; tam = f.length()
+            } else {
+                contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { c ->
+                    if (c.moveToFirst()) {
+                        nombre = c.getString(0)
+                        if (!c.isNull(1)) tam = c.getLong(1)
+                    }
+                }
+            }
+        } catch (e: Exception) {}
+        val n = nombre ?: uri.lastPathSegment?.substringAfterLast('/') ?: return null
+        val col = mutableListOf(MediaStore.Audio.Media.DISPLAY_NAME)
+        if (Build.VERSION.SDK_INT >= 29) col.add(MediaStore.Audio.Media.RELATIVE_PATH) else col.add(MediaStore.Audio.Media.DATA)
+        val sel = if (tam > 0) "${MediaStore.Audio.Media.DISPLAY_NAME} = ? AND ${MediaStore.Audio.Media.SIZE} = ?" else "${MediaStore.Audio.Media.DISPLAY_NAME} = ?"
+        val args = if (tam > 0) arrayOf(n, tam.toString()) else arrayOf(n)
+        try {
+            contentResolver.query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, col.toTypedArray(), sel, args, null)?.use { c ->
+                if (c.moveToFirst()) {
+                    val nom = c.getString(0) ?: n
+                    val carpeta = if (Build.VERSION.SDK_INT >= 29) (c.getString(1) ?: "").trimEnd('/')
+                    else (c.getString(1) ?: "").substringBeforeLast('/').substringAfter("/0/")
+                    return if (carpeta.isEmpty()) nom else "$carpeta/$nom"
+                }
+            }
+        } catch (e: Exception) {}
+        return null
     }
 
     // Atrás: primero cierra lo que esté abierto en la pantalla (reproductor, menú, ajustes).
@@ -190,6 +248,14 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun pedirPermiso() { main.post { pedirPermisos() } }
+
+        /** Canción que llegó desde "Abrir con" (se entrega una sola vez). */
+        @JavascriptInterface
+        fun pendiente(): String {
+            val p = pendiente ?: ""
+            pendiente = null
+            return p
+        }
 
         /** Cada cambio del reproductor: pasa géneros/ritmos a Android Auto y deja respaldo en Descargas. */
         @JavascriptInterface
