@@ -5,6 +5,23 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 21 nov 2026 (noche) — Carátulas: arreglo y cambiar a mano
+**Problema que vio Jorge:** canciones de Tamara ("Canta Roberto Carlos") salían con la carátula de Roberto Carlos, y no había forma de cambiarla.
+
+**Causa:** la búsqueda aceptaba un resultado si el artista aparecía en *cualquier* dato de la canción, incluido el álbum. Como el álbum dice "Roberto Carlos", aceptaba los discos de Roberto Carlos.
+
+**Arreglos y novedades**
+- Ahora el **artista del resultado tiene que coincidir con el artista de la canción** (no con el álbum).
+- Las carátulas que se pusieron solas con la búsqueda anterior **se revisan otra vez solas**: si había una mejor, se cambia; si la de antes no era, se quita.
+- **⋮ de la canción → "🖼 Cambiar carátula"**: muestra varias carátulas posibles (con artista y álbum debajo, la más probable primero) para tocar la correcta. También:
+  - **📷 Elegir una imagen del celular** (una foto o una imagen descargada).
+  - **🚫 Dejar sin carátula.**
+- Lo que eliges a mano **ya no se cambia solo**.
+
+**Respaldo (regla fija):** la carátula elegida va en el respaldo (💾). Si eliges una imagen del celular, se guarda achicada dentro del respaldo, así que vuelve aunque se borre la app.
+
+---
+
 ## 21 nov 2026 (noche) — Carátula grande y fondo del color de la carátula
 **Pedido por Jorge:** carátula grande y que el fondo del reproductor cambie al color de la carátula (como en Deezer).
 
