@@ -315,7 +315,9 @@ class PlaybackService : MediaLibraryService() {
         override fun onGetLibraryRoot(
             session: MediaLibrarySession, browser: MediaSession.ControllerInfo, params: LibraryParams?
         ): ListenableFuture<LibraryResult<MediaItem>> =
-            Futures.immediateFuture(LibraryResult.ofItem(Biblioteca.item(this@PlaybackService, Biblioteca.RAIZ)!!, params))
+            if (params?.isRecent == true)    // Android Auto pide "lo último que sonó" para su tarjeta de seguir escuchando
+                Futures.immediateFuture(LibraryResult.ofItem(Biblioteca.item(this@PlaybackService, Biblioteca.RECIENTES)!!, params))
+            else Futures.immediateFuture(LibraryResult.ofItem(Biblioteca.item(this@PlaybackService, Biblioteca.RAIZ)!!, estiloLista()))
 
         override fun onGetItem(
             session: MediaLibrarySession, browser: MediaSession.ControllerInfo, mediaId: String
@@ -405,6 +407,14 @@ class PlaybackService : MediaLibraryService() {
             )
         }
     }
+
+    /** Pide a Android Auto que muestre las carpetas y canciones como lista (con su carátula). */
+    private fun estiloLista(): LibraryParams = LibraryParams.Builder().setExtras(Bundle().apply {
+        putBoolean("android.media.browse.CONTENT_STYLE_SUPPORTED", true)
+        putInt("android.media.browse.CONTENT_STYLE_BROWSABLE_HINT", 1)
+        putInt("android.media.browse.CONTENT_STYLE_PLAYABLE_HINT", 1)
+        putBoolean("android.media.browse.SEARCH_SUPPORTED", true)
+    }).build()
 
     private fun esCarro(c: MediaSession.ControllerInfo) =
         c.packageName.contains("gearhead") || c.packageName.contains("android.car") || c.packageName.contains("automotive")

@@ -28,6 +28,7 @@ data class Cancion(
     val carpeta: String,
     val duracionMs: Long,
     val caratula: String = "",   // carátula encontrada en internet por el reproductor (si la canción no trae)
+    val fav: Boolean = false,    // marcada con ❤ en el reproductor
 )
 
 /**
@@ -41,19 +42,22 @@ object Biblioteca {
 
     // ----- categorías del menú (en Android Auto se ven como pestañas) -----
     const val RAIZ = "raiz"
+    // pestañas de arriba en Android Auto (como Amazon Music: Inicio, Carpetas, Artistas, Más)
     val CATEGORIAS = linkedMapOf(
-        "todas" to "Todas",
-        "genero" to "Géneros",
-        "ritmo" to "Ritmo",
+        "inicio" to "Inicio",
+        "carpeta" to "Carpetas",
+        "artista" to "Artistas",
         "mas" to "Más",
     )
     val SUBCATEGORIAS = linkedMapOf(
+        "todas" to "🎵 Todas las canciones",
+        "album" to "💿 Álbumes",
+        "genero" to "🎸 Géneros",
+        "ritmo" to "🥁 Ritmo",
         "dj" to "🎚 Mezcla DJ",
-        "carpeta" to "Carpetas",
-        "artista" to "Artistas",
-        "album" to "Álbumes",
-        "anio" to "Años",
+        "anio" to "📅 Años",
     )
+    const val RECIENTES = "recientes"
 
     fun canciones(ctx: Context): List<Cancion> {
         val c = cache
@@ -73,6 +77,7 @@ object Biblioteca {
     private fun cargar(ctx: Context): List<Cancion> {
         if (!tienePermiso(ctx)) return emptyList()
         val extra = Respaldo.etiquetasWeb(ctx)
+        val favoritas = Respaldo.favoritasWeb(ctx)
         val lista = ArrayList<Cancion>()
         val col = mutableListOf(
             MediaStore.Audio.Media._ID,
@@ -140,6 +145,7 @@ object Biblioteca {
                             carpeta = carpeta.ifEmpty { "Carpeta principal" },
                             duracionMs = l(MediaStore.Audio.Media.DURATION),
                             caratula = w("caratula").takeIf { it.startsWith("https://") }.orEmpty(),
+                            fav = archivo in favoritas,
                         )
                     )
                 }
@@ -185,6 +191,7 @@ object Biblioteca {
         "album" -> c.album.ifEmpty { "Álbum desconocido" }
         "anio" -> c.anio.ifEmpty { "Sin año" }
         "carpeta" -> c.carpeta
+        "fav" -> if (c.fav) "Favoritas" else ""
         else -> ""
     }
 
@@ -284,6 +291,25 @@ object Biblioteca {
         val total = canciones(ctx).size
         return when {
             padre == RAIZ -> CATEGORIAS.map { (k, v) -> itemCarpeta("cat:$k", v, null, false) }
+            padre == RECIENTES -> {   // la tarjeta "seguir escuchando" de Android Auto
+                val id = Respaldo.ultimaId(ctx)
+                val r = id?.let { resolver(ctx, it) }
+                if (r == null) emptyList() else listOf(r.first[r.second])
+            }
+            padre == "cat:inicio" -> {
+                if (total == 0) listOf(itemAccion("vacio", "No hay música", "Abre Reproductor JAT en el celular y da permiso"))
+                else {
+                    val favs = canciones(ctx).count { it.fav }
+                    val l = mutableListOf(itemAccion(idTodoContexto("aleatorio"), "🔀 Mezclar toda mi música", "$total canciones"))
+                    if (favs > 0) l.add(itemCarpeta(idGrupo("fav", "Favoritas"), "❤ Favoritas", "$favs canciones", true))
+                    l.add(itemCarpeta("cat:todas", "🎵 Todas las canciones", "$total canciones", false))
+                    l.add(itemCarpeta("cat:album", "💿 Álbumes", null, false))
+                    l.add(itemCarpeta("cat:genero", "🎸 Géneros", null, false))
+                    l.add(itemCarpeta("cat:ritmo", "🥁 Ritmo", null, false))
+                    l.add(itemCarpeta("cat:dj", "🎚 Mezcla DJ", "canciones que se mezclan", false))
+                    l
+                }
+            }
             padre == "cat:todas" -> {
                 if (total == 0) listOf(itemAccion("vacio", "No hay música", "Abre Reproductor JAT en el celular y da permiso"))
                 else listOf(
@@ -294,8 +320,13 @@ object Biblioteca {
             padre.startsWith("cat:") -> {
                 val cat = padre.removePrefix("cat:")
                 grupos(ctx, cat).map { (g, n) ->
-                    val nombre = if (cat == "ritmo") (mapOf("Lento" to "🐢 ", "Moderado" to "🚶 ", "Rápido" to "🔥 ")[g] ?: "") + g else g
-                    itemCarpeta(idGrupo(cat, g), nombre, "$n canciones", true)
+                    val nombre = when (cat) {
+                        "ritmo" -> (mapOf("Lento" to "🐢 ", "Moderado" to "🚶 ", "Rápido" to "🔥 ")[g] ?: "") + g
+                        "carpeta" -> "📁 " + g.substringAfterLast('/')       // solo el nombre de la carpeta
+                        else -> g
+                    }
+                    val sub = if (cat == "carpeta" && g.contains('/')) "$n canciones · ${g.substringBeforeLast('/')}" else "$n canciones"
+                    itemCarpeta(idGrupo(cat, g), nombre, sub, true)
                 }
             }
             padre.startsWith("grp:") -> {
@@ -347,6 +378,7 @@ object Biblioteca {
 
     fun item(ctx: Context, mediaId: String): MediaItem? {
         if (mediaId == RAIZ) return itemCarpeta(RAIZ, "Reproductor JAT", null, false)
+        if (mediaId == RECIENTES) return itemCarpeta(RECIENTES, "Seguir escuchando", null, false)
         if (mediaId.startsWith("song:")) {
             val r = resolver(ctx, mediaId) ?: return null
             return r.first[r.second]

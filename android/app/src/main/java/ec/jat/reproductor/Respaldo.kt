@@ -47,6 +47,20 @@ object Respaldo {
         if (f.exists()) JSONObject(f.readText()).optJSONObject("etiquetas") ?: JSONObject() else JSONObject()
     } catch (e: Exception) { JSONObject() }
 
+    /** Favoritas que marcaste con ❤ en el reproductor (nombres de archivo). */
+    fun favoritasWeb(ctx: Context): Set<String> = try {
+        val f = File(ctx.filesDir, ARCHIVO_WEB)
+        val a = if (f.exists()) JSONObject(f.readText()).optJSONArray("favoritas") else null
+        if (a == null) emptySet() else (0 until a.length()).map { a.optString(it) }.toSet()
+    } catch (e: Exception) { emptySet() }
+
+    private fun guardarWeb(ctx: Context, etiquetas: JSONObject, favoritas: org.json.JSONArray?) {
+        val o = JSONObject().put("etiquetas", etiquetas)
+        val fav = favoritas ?: try { JSONObject(File(ctx.filesDir, ARCHIVO_WEB).readText()).optJSONArray("favoritas") } catch (e: Exception) { null }
+        if (fav != null) o.put("favoritas", fav)
+        File(ctx.filesDir, ARCHIVO_WEB).writeText(o.toString())
+    }
+
     /** Importa un respaldo (del reproductor web o de esta app). Devuelve cuántas canciones trae. */
     fun importar(ctx: Context, uri: Uri): Int {
         val texto = ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
@@ -57,7 +71,7 @@ object Respaldo {
         // se juntan: lo nuevo manda, lo anterior se conserva
         val keys = etiquetas.keys()
         while (keys.hasNext()) { val k = keys.next(); previo.put(k, etiquetas.get(k)) }
-        File(ctx.filesDir, ARCHIVO_WEB).writeText(JSONObject().put("etiquetas", previo).toString())
+        guardarWeb(ctx, previo, json.optJSONArray("favoritas"))
         json.optJSONObject("ajustesAndroid")?.let {
             prefs(ctx).edit().putBoolean("saltarSilencios", it.optBoolean("saltarSilencios", saltarSilencios(ctx)))
                 .putInt("fundido", it.optInt("fundido", fundido(ctx))).apply()
@@ -77,7 +91,7 @@ object Respaldo {
             val previo = etiquetasWeb(ctx)
             val keys = etiquetas.keys()
             while (keys.hasNext()) { val k = keys.next(); previo.put(k, etiquetas.get(k)) }
-            File(ctx.filesDir, ARCHIVO_WEB).writeText(JSONObject().put("etiquetas", previo).toString())
+            guardarWeb(ctx, previo, json.optJSONArray("favoritas"))
             Biblioteca.sucia = true
             // copia automática en Descargas (máximo una vez por minuto)
             val ahora = System.currentTimeMillis()

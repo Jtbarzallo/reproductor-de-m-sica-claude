@@ -5,6 +5,22 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 22 nov 2026 — Android Auto como Amazon Music: Inicio, Carpetas, Artistas y Más
+**Pedido por Jorge:** al abrir la app en Android Auto solo preguntaba si quería reproducir; debe funcionar como Amazon Music, con un inicio y poder escoger entre carpetas, etc. (Antes se activó "Fuentes desconocidas" en Android Auto para que apareciera la app.)
+
+**Novedades en el carro**
+- Pestañas de arriba nuevas: **Inicio · Carpetas · Artistas · Más**.
+  - **Inicio:** 🔀 Mezclar toda mi música, **❤ Favoritas** (las que marcaste en el celular), 🎵 Todas las canciones, 💿 Álbumes, 🎸 Géneros, 🥁 Ritmo y 🎚 Mezcla DJ.
+  - **Carpetas:** cada carpeta con su nombre corto (📁 Salsa) y debajo cuántas canciones tiene y dónde está.
+  - **Artistas** y **Más** (todas, álbumes, géneros, ritmo, Mezcla DJ, años).
+- Se pide a Android Auto mostrar todo **como lista con carátulas**, y que se pueda **buscar**.
+- La tarjeta de **"seguir escuchando"** de Android Auto ahora recibe solo la última canción que sonó (antes recibía todo el menú, y por eso solo preguntaba si reproducir).
+- Las **favoritas** del celular pasan solas al carro.
+
+**Respaldo (regla fija):** las favoritas ya iban en el respaldo; ahora también se guardan en la copia interna que usa Android Auto.
+
+---
+
 ## 22 nov 2026 — Android Auto: volver a poder escoger música
 **Problema que vio Jorge:** Android Auto ya funcionaba, pero no dejaba escoger música.
 

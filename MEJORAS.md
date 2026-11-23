@@ -32,9 +32,9 @@
 - [x] Igualar tiempos (22 nov): bpm y tono en todas las filas, medición automática en segundo plano, grupo "Por velocidad", 🎯 solo tiempo parecido con % de ajuste, "Igualar solo" al cargar en el mixer; en el respaldo
 - [x] Sesión multimedia del sistema (22 nov): aparece en centro de control, pantalla bloqueada y radio Bluetooth con carátula; botones de audífonos; al conectar Android Auto sigue la misma canción en el mismo punto
 - [x] Páginas de artista y álbum estilo Deezer (22 nov): tarjetas con foto, imagen grande, título grande, "De ARTISTA", ▶ grande, lista numerada; foto del artista de internet (en el respaldo)
+- [x] Android Auto como Amazon Music (22 nov): pestañas Inicio/Carpetas/Artistas/Más, ❤ Favoritas en el carro, listas con carátula, tarjeta de seguir escuchando
 
 ## Pendientes / ideas
-- [ ] Favoritas también en Android Auto (una pestaña "Favoritas" en el carro)
 - [ ] Deslizar hacia abajo para cerrar el reproductor completo
 - [ ] Pasar de canción deslizando la carátula a los lados (como Deezer)
 - [ ] Guardar también los datos editados dentro del archivo de música (escribir el TAG en el MP3)
