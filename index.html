@@ -333,7 +333,7 @@
   <div class="chipsZona">
     <div class="chips" id="porChips">
       <button data-p="todas">Todas</button><button data-p="dj">🎚 Mezcla DJ</button><button data-p="genero">Género</button><button data-p="ritmo">Ritmo</button><button data-p="velocidad">🥁 Velocidad</button>
-      <button data-p="artista">Artista</button><button data-p="album">Álbum</button><button data-p="anio">Año</button><button data-p="carpeta">Carpeta</button>
+      <button data-p="artista">Artista</button><button data-p="album">Álbum</button><button data-p="decada">📅 Décadas</button><button data-p="anio">Año</button><button data-p="carpeta">Carpeta</button>
     </div>
     <div class="chips" id="grupoChips"></div>
   </div>
@@ -364,6 +364,7 @@
     <button data-p="velocidad" style="background:#b35c00">Por velocidad<small>Grupos de tiempo parecido (bpm)</small></button>
     <button data-p="artista" style="background:#2f7de1">Artistas</button>
     <button data-p="album" style="background:#b8327a">Álbumes</button>
+    <button data-p="decada" style="background:#5b3cc4">Décadas<small>70s · 80s · 90s · 2000s…</small></button>
     <button data-p="anio" style="background:#8a6d00">Años</button>
     <button data-p="carpeta" style="background:#4d5566">Carpetas</button>
   </div>
@@ -670,7 +671,7 @@ function leerTodas(){
 function estado(){
   return { app:'Reproductor de Música JAT', version:1, fecha:new Date().toISOString(),
     orden: lista.map(c => c.nombre),
-    etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm || c.caratula || c.tagManual || c.tono).map(c => [c.nombre, {titulo:c.titulo||'', caratula:c.caratula||'', manual:c.tagManual?1:0, carM:c.carManual?1:0, tono:c.tono||'', tonoNom:c.tonoNom||'', artista:c.artista||'', album:c.album||'', anio:c.anio||'', genero:c.genero||'', bpm:c.bpm||0, pulso:c.pulso||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
+    etiquetas: Object.fromEntries(lista.filter(c => c.titulo || c.artista || c.album || c.letra || c.genero || c.bpm || c.caratula || c.tagManual || c.tono || c.anioOrig).map(c => [c.nombre, {titulo:c.titulo||'', caratula:c.caratula||'', manual:c.tagManual?1:0, carM:c.carManual?1:0, tono:c.tono||'', tonoNom:c.tonoNom||'', artista:c.artista||'', album:c.album||'', anio:c.anio||'', anioOrig:c.anioOrig||'', genero:c.genero||'', bpm:c.bpm||0, pulso:c.pulso||0, letra:c.letra||'', letraSync:c.letraSync||''}])),
     vista, favoritas: lista.filter(c => c.fav).map(c => c.nombre),
     clave: claveGuardada(), actual: lista[actual]?.nombre || null,
     posicion: audio.currentTime || 0, volumen: audio.volume, aleatorio, repetir, estereo: modoEst, dj: djSeg, eq: eqVals, ocho: ochoSeg, letraModo, tema, mxAuto, fotosArtistas };
@@ -709,6 +710,7 @@ function aplicarEstado(e, conPos, soloLista = false){
     let cambio = false;
     // lo que Jorge corrigió a mano (datos o carátula) manda sobre lo que trae el archivo
     if(t.manual && !c.tagManual){ ['titulo','artista','album','anio','genero'].forEach(k => { c[k] = t[k] || ''; }); c.tagManual = true; cambio = true; }
+    if(t.anioOrig && !c.anioOrig){ c.anioOrig = t.anioOrig; c.anioV = 1; cambio = true; }
     if(t.tono && !c.tono){ c.tono = t.tono; c.tonoNom = t.tonoNom || ''; cambio = true; }
     if(t.carM && !c.carManual && t.caratula){ c.caratula = t.caratula; delete c.portada; c.carManual = true; c.carV = 2; cambio = true; }
     for(const k of ['titulo','artista','album','anio','genero','bpm','pulso','letra','letraSync','caratula']) if(t[k] && !c[k] && !(k === 'caratula' && c.carV >= 2) && !c.tagManual){ c[k] = t[k]; cambio = true; if(k === 'caratula'){ c.carV = 2; c.carManual = true; } }
@@ -1635,6 +1637,7 @@ async function leerPendientes(){
   }
   buscarCaratulas();     // las que no traen portada: se busca la carátula en internet
   medirTodo();           // velocidad (bpm) y tono de toda la música, poco a poco
+  buscarAnios();         // año original de cada canción (para las décadas)
 }
 let urlPortada = null;
 function mostrarActual(){
@@ -1795,6 +1798,7 @@ function grupoDe(c, por){
     case 'artista': return c.artista || 'Artista desconocido';
     case 'album': return c.album || 'Álbum desconocido';
     case 'anio': return c.anio || 'Sin año';
+    case 'decada': return decadaDe(c);
     case 'carpeta': return carpetaDe(c);
   }
   return '';
@@ -1838,7 +1842,8 @@ function pintarChips(){
   const orden = vista.por === 'ritmo' ? ['Lento','Moderado','Rápido','Sin analizar'] : null;
   const numDJ = g => /^\d/.test(g) ? parseInt(g) : g === 'No mezclables' ? 1000 : 2000;
   const numV = g => /^\d/.test(g) ? parseInt(g) : 9999;
-  const grupos = [...cuenta.keys()].sort((a, b) => vista.por === 'velocidad' ? numV(a) - numV(b) : vista.por === 'dj' ? numDJ(a) - numDJ(b) : orden ? orden.indexOf(a) - orden.indexOf(b)
+  const numD = g => { const n = parseInt(g); return isNaN(n) ? 99999 : n < 100 ? 1900 + n : n; };
+  const grupos = [...cuenta.keys()].sort((a, b) => vista.por === 'decada' ? numD(a) - numD(b) : vista.por === 'velocidad' ? numV(a) - numV(b) : vista.por === 'dj' ? numDJ(a) - numDJ(b) : orden ? orden.indexOf(a) - orden.indexOf(b)
     : (/^(Sin |Artista desc|Álbum desc)/.test(a) - /^(Sin |Artista desc|Álbum desc)/.test(b)) || a.localeCompare(b, 'es'));
   if(vista.grupo !== null && !cuenta.has(vista.grupo)) vista.grupo = null;
   const mk = (txt, g, n) => {
@@ -1881,7 +1886,7 @@ function filaCancion(i, alTocar, conExtra = false){
   a.textContent = (c.artista || c.album || 'Artista desconocido') + (c.bpm ? `  ·  🥁 ${c.bpm} bpm` : '') + (c.tono ? `  ·  🎼 ${c.tono}` : '');
   tx.append(t, a);
   if(conExtra){
-    const extra = [c.genero, c.bpm ? `🥁 ${categoriaRitmo(c.bpm)} (${c.bpm})` : '', c.pulso ? (mezclable(c) ? '🎚 mezclable' : '🎚 difícil de mezclar') : ''].filter(Boolean).join(' · ');
+    const extra = [vista.por === 'decada' && anioDe(c) ? `📅 ${anioDe(c)}` : '', c.genero, c.bpm ? `🥁 ${categoriaRitmo(c.bpm)} (${c.bpm})` : '', c.pulso ? (mezclable(c) ? '🎚 mezclable' : '🎚 difícil de mezclar') : ''].filter(Boolean).join(' · ');
     if(extra){ const x = document.createElement('div'); x.className = 'x'; x.textContent = extra; tx.append(x); }
   }
   f.append(tx);
@@ -1900,7 +1905,7 @@ function pintarLista(){
     const v = filtradas();
     if(!v.length) ul.innerHTML = '<div class="vacio">No hay canciones en este grupo</div>';
     else {
-      const frag = document.createDocumentFragment(), conExtra = ['genero','ritmo','dj','velocidad'].includes(vista.por);
+      const frag = document.createDocumentFragment(), conExtra = ['genero','ritmo','dj','velocidad','decada'].includes(vista.por);
       v.forEach(i => frag.append(filaCancion(i, tocarDesdeInicio, conExtra)));
       ul.append(frag);
     }
@@ -3448,6 +3453,76 @@ function ponerTema(t, guardar = true){
 }
 document.querySelectorAll('#temas button').forEach(b => b.onclick = () => ponerTema(b.dataset.t));
 
+/* ---------- Décadas: año ORIGINAL de cada canción (70s, 80s, 90s…) ---------- */
+// El año de la etiqueta a veces es el del disco recopilatorio (2005 para una canción de 1985);
+// por eso se busca en internet el año en que salió la canción por primera vez.
+function anioDe(c){
+  const a = parseInt(c.anio) || 0, o = parseInt(c.anioOrig) || 0;
+  const v = [a, o].filter(x => x >= 1900 && x <= 2100);
+  return v.length ? Math.min(...v) : 0;
+}
+function decadaDe(c){
+  const a = anioDe(c); if(!a) return 'Sin año';
+  const d = Math.floor(a / 10) * 10;
+  return d >= 2000 ? `${d}s` : `${String(d).slice(2)}s`;      // 70s, 80s, 90s, 2000s, 2010s…
+}
+async function anioInternet(c){
+  if(!c.artista || tituloGenerico(c.titulo)) return null;
+  const t = limpiarTexto(titulo(c)), a = c.artista;
+  const anios = [];
+  let huboRed = false;
+  try{
+    const d = await mbJSON('recording/?limit=15&query=' + encodeURIComponent(`recording:"${t}" AND artist:"${a}"`));
+    if(d){ huboRed = true;
+      (d.recordings || []).forEach(x => {
+        const r = puntajeCaratula({titulo: x.title, artista: (x['artist-credit'] || []).map(z => z.name).join(' ')}, c);
+        const y = parseInt((x['first-release-date'] || '').slice(0, 4));
+        if(r && r.cubreT >= 0.75 && r.cubreA >= 0.6 && y >= 1900) anios.push(y);
+      });
+    }
+  }catch(e){}
+  if(!anios.length){
+    try{
+      const url = 'https://itunes.apple.com/search?media=music&entity=song&limit=25&term=' + encodeURIComponent(a + ' ' + t);
+      let d; try{ const r = await fetch(url); d = await r.json(); }catch(e){ d = await jsonp(url); }
+      huboRed = true;
+      (d.results || []).forEach(x => {
+        const r = puntajeCaratula({titulo: x.trackName, artista: x.artistName}, c);
+        const y = parseInt((x.releaseDate || '').slice(0, 4));
+        if(r && r.cubreT >= 0.75 && r.cubreA >= 0.6 && y >= 1900) anios.push(y);
+      });
+    }catch(e){}
+  }
+  if(!huboRed) return {error: true};
+  return anios.length ? Math.min(...anios) : null;
+}
+let buscandoAnios = false;
+async function buscarAnios(todas = false){
+  if(buscandoAnios){ if(todas) toast('📅 Ya estoy buscando los años…'); return; }
+  buscandoAnios = true;
+  const pend = lista.filter(c => c.leido && !c.anioOrig && (todas || !c.anioV) && c.artista && !tituloGenerico(c.titulo));
+  let ok = 0, n = 0;
+  try{
+    for(const c of pend){
+      while(document.hidden || mixerAbierto) await espera(4000);
+      if(!lista.includes(c)) continue;
+      n++;
+      if(!clasificando) $('estadoClas').textContent = `📅 Buscando el año de cada canción (para las décadas): ${n} de ${pend.length}…`;
+      const r = await anioInternet(c);
+      if(r && r.error) break;                     // sin internet: otro día
+      c.anioV = 1;
+      if(r){ c.anioOrig = String(r); ok++; }
+      guardarCancion(c);
+      if(n % 10 === 0){ pintarLista(); guardarEstado(); }
+      await espera(1100);                         // MusicBrainz pide máximo una consulta por segundo
+    }
+  } finally {
+    buscandoAnios = false;
+    if(n){ pintarLista(); guardarEstado(); if(!clasificando) $('estadoClas').textContent = `✔ Años encontrados: ${ok} de ${n}. Mira "📅 Décadas".`; }
+    if(todas) toast(`📅 Listo: ${ok} años encontrados`, 4000);
+  }
+}
+
 /* ---------- Páginas de ARTISTA y ÁLBUM (estilo Deezer) ---------- */
 let fotosArtistas = {};      // nombre normalizado → foto del artista (de Deezer); va en el respaldo
 try{ fotosArtistas = JSON.parse(localStorage.getItem('reproductorJAT_fotosArt')) || {}; }catch(e){}
@@ -3568,7 +3643,7 @@ $('dMas').onclick = () => {
 /* ---------- Pantallas: menú de abajo, mini reproductor, hoja de opciones ---------- */
 let vistaAct = 'inicio', vistaPrev = 'inicio';
 const TITULOS = {detalle: '', inicio: 'Mi música', explorar: 'Explorar', favoritos: 'Canciones favoritas', buscar: 'Búsqueda', ajustes: 'Ajustes'};
-const NOMBRE_POR = {genero: 'Géneros', ritmo: 'Ritmo', velocidad: 'Por velocidad', dj: 'Mezcla DJ', artista: 'Artistas', album: 'Álbumes', anio: 'Años', carpeta: 'Carpetas'};
+const NOMBRE_POR = {genero: 'Géneros', ritmo: 'Ritmo', velocidad: 'Por velocidad', decada: 'Décadas', dj: 'Mezcla DJ', artista: 'Artistas', album: 'Álbumes', anio: 'Años', carpeta: 'Carpetas'};
 function pintarTitulo(){
   let t = TITULOS[vistaAct];
   if(vistaAct === 'inicio' && vista.por !== 'todas') t = vista.grupo !== null ? vista.grupo : (NOMBRE_POR[vista.por] || t);
@@ -3687,6 +3762,7 @@ $('bMenuP').onclick = () => { if(actual >= 0) menuCancion(actual); };
 $('bMenu').onclick = () => abrirHoja('Más opciones', '', [
   {t: APP ? '🔄  Buscar canciones nuevas' : '📁  Elegir carpeta de música', f: () => $('bCarpeta').click()},
   {t: '🖼  Buscar carátulas que faltan', f: () => buscarCaratulas(true)},
+  {t: '📅  Buscar años (para las décadas)', f: () => buscarAnios(true)},
   {t: '🏷  Clasificar música (género y ritmo)', f: () => { irVista('explorar'); $('bClasificar').click(); }},
   {t: '🎛  Mixer (ondas, BPM, tono, loop)', f: abrirMixer},
   {t: '📡  Transmitir a otro aparato (Bluetooth)', f: menuSalida},
@@ -3756,6 +3832,7 @@ function editarDatos(i){
     campos.forEach(([k]) => { if(nuevo[k] !== (k === 'titulo' ? titulo(c) : (c[k] || ''))) cambio = true; });
     cerrarHoja();
     if(!cambio){ toast('Sin cambios'); return; }
+    if(nuevo.anio !== (c.anio || '')){ c.anioOrig = ''; c.anioV = 1; }   // el año que escribes tú manda
     campos.forEach(([k]) => { c[k] = nuevo[k]; });
     c.tagManual = true;
     if(cambioTA){ c.letra = ''; c.letraSync = ''; c.letraNo = false; }     // la letra se vuelve a buscar con los datos nuevos

@@ -33,6 +33,7 @@
 - [x] Sesión multimedia del sistema (22 nov): aparece en centro de control, pantalla bloqueada y radio Bluetooth con carátula; botones de audífonos; al conectar Android Auto sigue la misma canción en el mismo punto
 - [x] Páginas de artista y álbum estilo Deezer (22 nov): tarjetas con foto, imagen grande, título grande, "De ARTISTA", ▶ grande, lista numerada; foto del artista de internet (en el respaldo)
 - [x] Android Auto como Amazon Music (22 nov): pestañas Inicio/Carpetas/Artistas/Más, ❤ Favoritas en el carro, listas con carátula, tarjeta de seguir escuchando
+- [x] Décadas 70s/80s/90s… (22 nov): año original buscado en internet (MusicBrainz/iTunes), en la app y en Android Auto; en el respaldo
 
 ## Pendientes / ideas
 - [ ] Deslizar hacia abajo para cerrar el reproductor completo

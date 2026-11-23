@@ -29,6 +29,7 @@ data class Cancion(
     val duracionMs: Long,
     val caratula: String = "",   // carátula encontrada en internet por el reproductor (si la canción no trae)
     val fav: Boolean = false,    // marcada con ❤ en el reproductor
+    val anioOrig: String = "",   // año en que salió la canción por primera vez (buscado en internet)
 )
 
 /**
@@ -55,6 +56,7 @@ object Biblioteca {
         "genero" to "🎸 Géneros",
         "ritmo" to "🥁 Ritmo",
         "dj" to "🎚 Mezcla DJ",
+        "decada" to "📅 Décadas (70s, 80s, 90s…)",
         "anio" to "📅 Años",
     )
     const val RECIENTES = "recientes"
@@ -146,6 +148,7 @@ object Biblioteca {
                             duracionMs = l(MediaStore.Audio.Media.DURATION),
                             caratula = w("caratula").takeIf { it.startsWith("https://") }.orEmpty(),
                             fav = archivo in favoritas,
+                            anioOrig = w("anioOrig"),
                         )
                     )
                 }
@@ -190,10 +193,19 @@ object Biblioteca {
         "artista" -> c.artista.ifEmpty { "Artista desconocido" }
         "album" -> c.album.ifEmpty { "Álbum desconocido" }
         "anio" -> c.anio.ifEmpty { "Sin año" }
+        "decada" -> decada(c)
         "carpeta" -> c.carpeta
         "fav" -> if (c.fav) "Favoritas" else ""
         else -> ""
     }
+
+    /** 70s, 80s, 90s, 2000s… con el año más antiguo que se sepa (el de la etiqueta o el original). */
+    fun decada(c: Cancion): String {
+        val a = listOf(c.anio, c.anioOrig).mapNotNull { it.take(4).toIntOrNull() }.filter { it in 1900..2100 }.minOrNull() ?: return "Sin año"
+        val d = a / 10 * 10
+        return if (d >= 2000) "${d}s" else "${d % 100}s"
+    }
+    private fun numDecada(g: String): Int { val n = g.removeSuffix("s").toIntOrNull() ?: return 99999; return if (n < 100) 1900 + n else n }
 
     fun grupos(ctx: Context, cat: String): List<Pair<String, Int>> {
         val cuenta = LinkedHashMap<String, Int>()
@@ -201,6 +213,7 @@ object Biblioteca {
         val ordenRitmo = listOf("Lento", "Moderado", "Rápido", "Sin analizar")
         return cuenta.entries.map { it.key to it.value }.sortedWith(
             if (cat == "dj") compareBy<Pair<String, Int>> { numDJ(it.first) }
+            else if (cat == "decada") compareBy<Pair<String, Int>> { numDecada(it.first) }
             else if (cat == "ritmo") compareBy<Pair<String, Int>> { ordenRitmo.indexOf(it.first) }
             else compareBy<Pair<String, Int>>({ it.first.startsWith("Sin ") || it.first.endsWith("desconocido") }, { quitarTildes(it.first) })
         )
@@ -303,6 +316,7 @@ object Biblioteca {
                     val l = mutableListOf(itemAccion(idTodoContexto("aleatorio"), "🔀 Mezclar toda mi música", "$total canciones"))
                     if (favs > 0) l.add(itemCarpeta(idGrupo("fav", "Favoritas"), "❤ Favoritas", "$favs canciones", true))
                     l.add(itemCarpeta("cat:todas", "🎵 Todas las canciones", "$total canciones", false))
+                    l.add(itemCarpeta("cat:decada", "📅 Décadas", "70s · 80s · 90s · 2000s…", false))
                     l.add(itemCarpeta("cat:album", "💿 Álbumes", null, false))
                     l.add(itemCarpeta("cat:genero", "🎸 Géneros", null, false))
                     l.add(itemCarpeta("cat:ritmo", "🥁 Ritmo", null, false))

@@ -5,6 +5,21 @@ Antes de cada cambio se revisa esta bitácora y la lista [MEJORAS.md](MEJORAS.md
 
 ---
 
+## 22 nov 2026 — Décadas: 70s, 80s, 90s…
+**Pedido por Jorge:** carpetas que digan 70s, 80s, 90s y clasificar así la música.
+
+**Novedades**
+- Nuevo grupo **📅 Décadas** en Inicio y en Explorar: **70s, 80s, 90s, 2000s, 2010s…** (de la más antigua a la más nueva), y "Sin año" para las que no se sepa.
+- **Año original:** el año de la etiqueta a veces es el del disco recopilatorio (ej. 2005 para una canción de 1994). Por eso la app **busca sola en internet el año en que salió la canción por primera vez** (MusicBrainz, y si no, iTunes) y usa el más antiguo. Lo hace en segundo plano, una canción por segundo, y el avance se ve en Explorar. También en ⋮ → "📅 Buscar años".
+- Si escribes el año a mano en "Editar datos", manda el tuyo.
+- **Android Auto:** "📅 Décadas" en la pestaña Inicio y en Más; cada década es una carpeta que se puede reproducir o mezclar.
+- No se mueven los archivos del celular: las décadas son carpetas dentro de la app y del carro.
+- Probado: "Lamento Boliviano" (etiqueta 2005) quedó en los **90s** (1994).
+
+**Respaldo (regla fija):** el año original encontrado de cada canción va en el respaldo (💾) y pasa al carro.
+
+---
+
 ## 22 nov 2026 — Android Auto como Amazon Music: Inicio, Carpetas, Artistas y Más
 **Pedido por Jorge:** al abrir la app en Android Auto solo preguntaba si quería reproducir; debe funcionar como Amazon Music, con un inicio y poder escoger entre carpetas, etc. (Antes se activó "Fuentes desconocidas" en Android Auto para que apareciera la app.)
 
